@@ -47,8 +47,12 @@
 			                Authorization: `Bearer ${authToken}`,
 			            },
 			        });
-			
-			        if (!res.ok) throw new Error('Invalid token');
+				    
+			     	const result = await res.json(); // see response body
+
+			        if (!res.ok || !result.success) {
+			            throw new Error('Invalid token');
+			        }
 			
 			        alert('Authenticated successfully');
 			        document.getElementById('add-btn').disabled = false;
@@ -57,8 +61,13 @@
 			    } catch (error) {
 			        alert('Authentication failed: Invalid token');
 			        authToken = '';
+			
+			        // 認証失敗時にボタンを無効化する
+			        document.getElementById('add-btn').disabled = true;
+			        document.getElementById('update-btn').disabled = true;
+			        document.getElementById('delete-btn').disabled = true;
 			    }
-			}
+}
 
 
 			async function fetchData() {
