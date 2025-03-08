@@ -33,17 +33,33 @@
 			const API_URL = 'https://d1-app1.muchagorou112.workers.dev/api/table0';
 			let authToken = '';
 
-			function authenticate() {
-				authToken = document.getElementById('auth-token').value.trim();
-				if (authToken) {
-					document.getElementById('add-btn').disabled = false;
-					document.getElementById('update-btn').disabled = false;
-					document.getElementById('delete-btn').disabled = false;
-					alert('Authenticated');
-				} else {
-					alert('Please enter a valid token');
-				}
+			async function authenticate() {
+			    authToken = document.getElementById('auth-token').value.trim();
+			    if (!authToken) {
+			        alert('Please enter a valid token');
+			        return;
+			    }
+			
+			    try {
+			        const res = await fetch(API_URL + '/auth-check', {
+			            method: 'GET',
+			            headers: {
+			                Authorization: `Bearer ${authToken}`,
+			            },
+			        });
+			
+			        if (!res.ok) throw new Error('Invalid token');
+			
+			        alert('Authenticated successfully');
+			        document.getElementById('add-btn').disabled = false;
+			        document.getElementById('update-btn').disabled = false;
+			        document.getElementById('delete-btn').disabled = false;
+			    } catch (error) {
+			        alert('Authentication failed: Invalid token');
+			        authToken = '';
+			    }
 			}
+
 
 			async function fetchData() {
 				try {
