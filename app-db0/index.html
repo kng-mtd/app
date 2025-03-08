@@ -1,1 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }" :class="{ 'dark': darkMode }">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>D1 App</title>
 
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.8/cdn.min.js" defer></script>
+
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+
+		<style>
+			.toggle-container {
+				position: absolute;
+				top: 10px;
+				right: 10px;
+			}
+			#data-list {
+				max-height: 200px;
+				overflow-y: auto;
+				padding: 10px;
+				background-color: #eee;
+			}
+
+			/* Align forms horizontally */
+			.form-group {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+			}
+
+			.dark {
+				background-color: #111;
+			}
+			.dark h1,
+			.dark h2,
+			.dark h3,
+			.dark p,
+			.dark li,
+			.dark input,
+			.dark button .dark #data-list {
+				color: white !important;
+			}
+			.dark button,
+			.dark input,
+			.dark #data-list {
+				background-color: #222;
+			}
+			.dark input::placeholder {
+				color: #aaa;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Dark mode toggle button -->
+		<div class="toggle-container">
+			<button @click="darkMode = !darkMode; localStorage.setItem('darkMode', darkMode)">
+				<span x-text="darkMode ? '☀️' : '🌙'"></span>
+			</button>
+		</div>
+
+		<div class="container">
+			<h3>All Data</h3>
+			<ul id="data-list"></ul>
+
+			<h3>Add Data</h3>
+			<!-- Grouped input fields -->
+			<div class="form-group">
+				<input type="text" id="name" placeholder="Name" />
+				<input type="number" id="age" placeholder="Age" />
+				<button onclick="addData()">Add</button>
+			</div>
+
+			<h3>Update Data</h3>
+			<div class="form-group">
+				<input type="number" id="update-id" placeholder="ID" />
+				<input type="text" id="update-name" placeholder="New Name" />
+				<input type="number" id="update-age" placeholder="New Age" />
+				<button onclick="updateData()">Update</button>
+			</div>
+
+			<h3>Delete Data</h3>
+			<div class="form-group">
+				<input type="number" id="delete-id" placeholder="ID" />
+				<button onclick="deleteData()">Delete</button>
+			</div>
+		</div>
+
+		<script>
+			const API_URL = 'https://d1-app0.muchagorou112.workers.dev/api/data';
+
+			// Fetch and display data
+			async function fetchData() {
+				const res = await fetch(API_URL);
+				const data = await res.json();
+				const list = document.getElementById('data-list');
+				list.innerHTML = data.map((item) => `<li>${item.id}: ${item.name} (${item.age}yr)</li>`).join('');
+			}
+
+			// Add new data
+			async function addData() {
+				const name = document.getElementById('name').value;
+				const age = document.getElementById('age').value;
+				if (!name || !age) return alert('Please enter name and age.');
+
+				await fetch(API_URL, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name, age: Number(age) }),
+				});
+				fetchData();
+			}
+
+			// Update existing data
+			async function updateData() {
+				const id = document.getElementById('update-id').value;
+				const name = document.getElementById('update-name').value;
+				const age = document.getElementById('update-age').value;
+				if (!id || !name || !age) return alert('Please enter ID, new name, and new age.');
+
+				await fetch(`${API_URL}/${id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name, age: Number(age) }),
+				});
+				fetchData();
+			}
+
+			// Delete data by ID
+			async function deleteData() {
+				const id = document.getElementById('delete-id').value;
+				if (!id) return alert('Please enter ID.');
+
+				await fetch(`${API_URL}/${id}`, {
+					method: 'DELETE',
+				});
+				fetchData();
+			}
+
+			// Initial fetch
+			fetchData();
+		</script>
+	</body>
+</html>
