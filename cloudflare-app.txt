@@ -1,0 +1,684 @@
+GitHub Pagesは静的サイト向けのホスティングサービスなので、直接データベース（Cloudflare D1）に接続することはできません。
+代わりに、以下のような構成にするのが一般的です。
+
+1. **GitHub Pages**: フロントエンド（HTML/CSS/JavaScript）をホスティング
+2. **Cloudflare Workers**: APIのバックエンドを構築し、D1に接続
+3. **Cloudflare D1**: データベースとして使用
+
+### 手順
+1. **Cloudflare Workersのセットアップ**
+   - `wrangler` CLIをインストールし、Cloudflareにログイン
+   - `wrangler init` で新しいプロジェクトを作成
+   - `wrangler d1 create <database-name>` でD1データベースを作成
+   - `wrangler.toml` を設定してD1に接続
+
+2. **WorkersでAPIを作成**
+   - APIエンドポイントを作り、D1とのデータのやり取りを実装
+
+3. **GitHub Pagesでフロントエンドをデプロイ**
+   - APIをFetchしてデータを取得・表示するフロントエンドを作成
+   - GitHub Pagesにデプロイ
+
+
+mkdir d1-app0
+
+npm install -g wrangler
+wrangler login
+wrangler init d1-app0
+
+	╰ What would you like to start with?
+	  ● Hello World example
+	  ○ Framework Starter
+	  ○ Application Starter
+	  ○ Template from a GitHub repo
+	
+		╰ Which template would you like to use?
+	  ● Hello World Worker
+	  ○ Hello World Worker Using Durable Objects
+
+	Do you want to use TypeScript? → No
+	Would you like to create a Git repository? → No/Yes
+	Do you want to use git for version control? → Yes
+	
+	Do you want to deploy your application? → Yes
+	
+	✅ Cloudflare Workers にデプロイされる
+	✅ 公開URL（https://---.---.workers.dev）が発行される
+		https://d1-app0.muchagorou112.workers.dev/
+	✅ すぐに API を GitHub Pages から利用できるようになる
+
+	If deploy after selecting no -> wrangler deploy
+
+
+
+cd d1-app0
+
+wrangler d1 create database0
+
+	✅ Successfully created DB 'database0' in region APAC
+	Created your new D1 database.
+	
+	{
+  	"d1_databases": [
+    	{
+      	"binding": "DB",
+      	"database_name": "database0",
+      	"database_id": "facbab3e-506c-4908-9a04-7d45810d88f5"
+    	}
+  	]
+	}
+
+
+wrangler.tomlを作成し、D1 の設定を追加、DB情報は wrangler d1 list で取得
+
+	name = "d1-app0"
+	main = "src/index.js"
+    compatibility_date: "2025-02-24",
+
+	[[d1_databases]]
+	binding = "DB"
+	database_name = "database0"
+	database_id = "facbab3e-506c-4908-9a04-7d45810d88f5"
+
+wrangler.toml の設定が正しいか確認します。
+
+wrangler d1 info database0
+
+
+wrangler.jsonc/jsonを更新し、D1 を追加
+
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "d1-app0",
+	"main": "src/index.js",
+	"compatibility_date": "2025-02-24",
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "database0",
+			"database_id": "facbab3e-506c-4908-9a04-7d45810d88f5"
+		}
+	]
+}
+
+
+wrangler deploy
+
+
+
+
+D1 のテーブルを作成
+
+mkdir migrations
+
+/migrations/schema.sql
+	DROP TABLE IF EXISTS table0;
+	CREATE TABLE table0 (id INTEGER UNIQUE, name TEXT, age INTEGER);
+	INSERT INTO table0 (id, name, age) VALUES
+  	(1, 'Alice', 25),
+  	(2, 'Bob', 30),
+  	(3, 'Charlie', 22),
+  	(4, 'David', 35),
+  	(5, 'Eve', 28),
+  	(6, 'Frank', 40),
+  	(7, 'Grace', 27),
+  	(8, 'Hank', 33),
+  	(9, 'Ivy', 26),
+  	(10, 'Jack', 29);
+
+wrangler d1 execute database0 --file=./migrations/schema.sql --remote
+
+wrangler d1 info database0
+
+wrangler d1 execute database0 --command "SELECT name FROM sqlite_master WHERE type='table';" --remote
+
+wrangler d1 execute database0 --command "INSERT INTO table0 (name) VALUES ('Alice'), ('Bob'), ('Charlie');" --remote
+
+wrangler d1 execute database0 --command "SELECT * FROM table0;" --remote
+
+
+Cloudflare D1 に CSV をインポートする
+
+sqlite3 local.db <<EOF
+.mode csv
+.import penguins0.csv table1
+.exit
+EOF
+
+sqlite3 local.db .dump > dump.sql
+
+reject or comment out from dump.sql
+
+	--PRAGMA foreign_keys=OFF;
+	--BEGIN TRANSACTION;
+	--COMMIT;
+
+wrangler d1 execute database0 --file=dump.sql --remote
+
+
+
+
+src/index.js を更新し、Cloudflare D1 と連携する API を実装します。
+
+export default {
+	async fetch(request, env) {
+	  const url = new URL(request.url);
+	  const method = request.method;
+	  
+	  // for CORS prefleight
+	  if (method === "OPTIONS") {
+		return new Response(null, {
+		  status: 204,
+		  headers: {
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type"
+		  }
+		});
+	  }
+	  
+	  if (url.pathname.startsWith("/api/data")) {
+		try {
+		  if (method === "GET") {
+			const { results } = await env.DB.prepare("SELECT * FROM table0;").all();
+			return new Response(JSON.stringify(results), responseHeaders());
+		  }
+		  
+		  if (method === "POST") {
+			const body = await request.json();
+			const { success } = await env.DB.prepare("INSERT INTO table0 (name, age) VALUES (?, ?);")
+			  .bind(body.name, body.age)
+			  .run();
+			return new Response(JSON.stringify({ success }), responseHeaders(201));
+		  }
+		  
+		  if (method === "PUT") {
+			const id = url.pathname.split("/").pop();
+			const body = await request.json();
+			const { success } = await env.DB.prepare("UPDATE table0 SET name = ?, age = ? WHERE id = ?;")
+			  .bind(body.name, body.age, id)
+			  .run();
+			return new Response(JSON.stringify({ success }), responseHeaders());
+		  }
+		  
+		  if (method === "DELETE") {
+			const id = url.pathname.split("/").pop();
+			const { success } = await env.DB.prepare("DELETE FROM table0 WHERE id = ?;")
+			  .bind(id)
+			  .run();
+			return new Response(JSON.stringify({ success }), responseHeaders());
+		  }
+		} catch (error) {
+		  return new Response(JSON.stringify({ error: error.message }), responseHeaders(500));
+		}
+	  }
+	  
+	  return new Response("Not Found", { status: 404 });
+	}
+  };
+  
+  function responseHeaders(status = 200) {
+	return {
+	  status,
+	  headers: {
+		"Content-Type": "application/json",
+		"Access-Control-Allow-Origin": "*"
+	  }
+	};
+  }
+  
+
+wrangler deploy
+
+
+
+GitHub Pages にデプロイするフロントエンド index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D1 App</title>
+</head>
+<body>
+  <h1>All Data</h1>
+  <ul id="data-list"></ul>
+
+  <h2>Add Data</h2>
+  <input type="text" id="name" placeholder="Name">
+  <input type="number" id="age" placeholder="Age">
+  <button onclick="addData()">Add</button>
+
+  <h2>Update Data</h2>
+  <input type="number" id="update-id" placeholder="ID">
+  <input type="text" id="update-name" placeholder="New Name">
+  <input type="number" id="update-age" placeholder="New Age">
+  <button onclick="updateData()">Update</button>
+
+  <h2>Delete Data</h2>
+  <input type="number" id="delete-id" placeholder="ID">
+  <button onclick="deleteData()">Delete</button>
+
+  <script>
+    const API_URL = "https://d1-app0.muchagorou112.workers.dev/api/data";
+
+    async function fetchData() {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      const list = document.getElementById("data-list");
+      list.innerHTML = data.map(item => `<li>${item.id}: ${item.name} (${item.age}yr)</li>`).join("");
+    }
+
+    async function addData() {
+      const name = document.getElementById("name").value;
+      const age = document.getElementById("age").value;
+      if (!name || !age) return alert("Please enter name and age");
+
+      await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, age: Number(age) })
+      });
+      fetchData();
+    }
+
+    async function updateData() {
+      const id = document.getElementById("update-id").value;
+      const name = document.getElementById("update-name").value;
+      const age = document.getElementById("update-age").value;
+      if (!id || !name || !age) return alert("Please enter ID, new name, and new age");
+
+      await fetch(`${API_URL}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, age: Number(age) })
+      });
+      fetchData();
+    }
+
+    async function deleteData() {
+      const id = document.getElementById("delete-id").value;
+      if (!id) return alert("Please enter ID");
+
+      await fetch(`${API_URL}/${id}`, {
+        method: "DELETE"
+      });
+      fetchData();
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>
+
+
+https://kng-mtd.github.io/app0/
+
+
+
+----
+
+`env.AUTH_TOKEN`を、Cloudflare Workersの環境変数として設定することで、APIへのアクセスを認証するために利用できます。設定方法は以下の通りです。
+
+### 手順
+
+1. **Cloudflare Workersのダッシュボードにアクセス**:
+   - [Cloudflare Workersのダッシュボード](https://dash.cloudflare.com/)にログインします。
+
+2. **ワーカーを作成または編集**:
+   - 既存のワーカーを選択するか、新しくワーカーを作成します。
+
+3. **環境変数の設定**:
+   - ワーカーの設定ページに移動し、左側のメニューから「**Settings**」を選択します。
+   - 「**Variables**」セクションに進み、「**Add Variable**」ボタンをクリックします。
+   - 変数の名前に `AUTH_TOKEN` を指定し、値に認証トークン（例えばランダムな文字列や秘密のキー）を入力します。
+
+4. **デプロイ**:
+   - 変更が完了したら、「**Save**」ボタンをクリックし、その後ワーカーをデプロイします。
+
+### 例
+`AUTH_TOKEN`に設定するトークンの例：
+- `AUTH_TOKEN=supersecretkey123`
+
+この設定により、ワーカー内で `env.AUTH_TOKEN` を使用して、APIリクエストの認証を行うことができます。
+
+### コード内での利用
+```javascript
+const validToken = env.AUTH_TOKEN;  // 環境変数からトークンを取得
+```
+
+これで、APIにアクセスする際には、`Authorization` ヘッダーに `Bearer <your-token>` を指定してリクエストを行う必要があります。例えば、`curl` コマンドでのリクエスト例：
+
+```bash
+curl -X GET "https://your-worker-url/api/data" -H "Authorization: Bearer supersecretkey123"
+```
+
+この方法で、環境変数 `AUTH_TOKEN` を使ってリクエストの認証を行うことができます。
+
+
+API can specify table, column, row and Autholization
+
+export default {
+	async fetch(req, env) {
+		const url = new URL(req.url);
+		const method = req.method;
+		const authHeader = req.headers.get('Authorization');
+		const validToken = env.AUTH_TOKEN;
+
+		if (method === 'OPTIONS') {
+			return new Response(null, { status: 204, headers: corsHeaders(req) });
+		}
+
+		if (url.pathname.startsWith('/api')) {
+			try {
+				const params = url.pathname.split('/').slice(2); // /api/{table}/{id}
+				const table = params[0];
+				const id = params[1];
+
+				const allowedTables = ['table0'];
+				if (!allowedTables.includes(table)) {
+					return new Response(JSON.stringify({ error: 'Invalid table name' }), responseHeaders(400));
+				}
+
+				if (method === 'GET') {
+					const query = id ? `SELECT * FROM ${table} WHERE id = ?;` : `SELECT * FROM ${table};`;
+					const { results } = id ? await env.DB.prepare(query).bind(id).all() : await env.DB.prepare(query).all();
+					return new Response(JSON.stringify(results), responseHeaders());
+				}
+
+				// Autholization
+				if (!authHeader || authHeader !== `Bearer ${validToken}`) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }), responseHeaders(401));
+				}
+
+				// reject no-JSON
+				if (!['GET', 'DELETE'].includes(method) && req.headers.get('Content-Type') !== 'application/json') {
+					return new Response(JSON.stringify({ error: 'Invalid Content-Type' }), responseHeaders(400));
+				}
+
+				const body = method !== 'DELETE' ? await req.json() : null;
+
+				if (method === 'POST') {
+					if (!body.id || !body.name || !body.age) {
+						return new Response(JSON.stringify({ error: 'Missing required fields (id, name, age)' }), responseHeaders(400));
+					}
+
+					const query = `INSERT INTO ${table} (id, name, age) VALUES (?, ?, ?);`;
+					const { success } = await env.DB.prepare(query).bind(body.id, body.name, body.age).run();
+					return new Response(JSON.stringify({ success }), responseHeaders(201));
+				}
+
+				if (method === 'PUT' && id) {
+					const updates = Object.keys(body)
+						.map((key) => `${key} = ?`)
+						.join(', ');
+					const values = [...Object.values(body), id];
+					const query = `UPDATE ${table} SET ${updates} WHERE id = ?;`;
+					const { success } = await env.DB.prepare(query)
+						.bind(...values)
+						.run();
+					return new Response(JSON.stringify({ success }), responseHeaders());
+				}
+
+				if (method === 'DELETE' && id) {
+					const query = `DELETE FROM ${table} WHERE id = ?;`;
+					const { success } = await env.DB.prepare(query).bind(id).run();
+					return new Response(JSON.stringify({ success }), responseHeaders());
+				}
+			} catch (error) {
+				return new Response(JSON.stringify({ error: error.message }), responseHeaders(500));
+			}
+		}
+
+		return new Response('Not Found', { status: 404 });
+	},
+};
+
+function responseHeaders(status = 200) {
+	return { status, headers: corsHeaders() };
+}
+
+function corsHeaders(req = null) {
+	const headers = {
+		'Content-Type': 'application/json',
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+		'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+	};
+	if (req) {
+		const requestedHeaders = req.headers.get('Access-Control-Request-Headers');
+		if (requestedHeaders) {
+			headers['Access-Control-Allow-Headers'] = requestedHeaders;
+		}
+	}
+	return headers;
+}
+
+
+
+
+test API on terminal
+
+curl -X GET https://d1-app1.muchagorou112.workers.dev/api/table0
+curl -X GET https://d1-app1.muchagorou112.workers.dev/api/table0/1
+
+curl -X POST https://d1-app1.muchagorou112.workers.dev/api/table0 \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer ---" \
+     -d '{"id":11, "name": "McDonald", "age":40}'
+
+curl -X PUT https://d1-app1.muchagorou112.workers.dev/api/table0/11 \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer ---" \
+     -d '{"name": "Mark", "age":35}'
+
+curl -X DELETE https://d1-app1.muchagorou112.workers.dev/api/table0/11 \
+     -H "Authorization: Bearer ---"
+
+
+
+
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>D1 App1</title>
+	</head>
+	<body>
+		<h1>All Data</h1>
+		<ul id="data-list"></ul>
+
+		<h2>Authentication</h2>
+		<input type="password" id="auth-token" placeholder="Enter Token" />
+		<button onclick="authenticate()">Authenticate</button>
+
+		<h2>Add Data</h2>
+		<input type="number" id="add-id" placeholder="ID" />
+		<input type="text" id="name" placeholder="Name" />
+		<input type="number" id="age" placeholder="Age" />
+		<button onclick="addData()" disabled id="add-btn">Add</button>
+
+		<h2>Update Data</h2>
+		<input type="number" id="update-id" placeholder="ID" />
+		<input type="text" id="update-name" placeholder="New Name" />
+		<input type="number" id="update-age" placeholder="New Age" />
+		<button onclick="updateData()" disabled id="update-btn">Update</button>
+
+		<h2>Delete Data</h2>
+		<input type="number" id="delete-id" placeholder="ID" />
+		<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
+
+		<script>
+			const API_URL = 'https://d1-app1.muchagorou112.workers.dev/api/table0';
+			let authToken = '';
+
+			function authenticate() {
+				authToken = document.getElementById('auth-token').value.trim();
+				if (authToken) {
+					document.getElementById('add-btn').disabled = false;
+					document.getElementById('update-btn').disabled = false;
+					document.getElementById('delete-btn').disabled = false;
+					alert('Authenticated');
+				} else {
+					alert('Please enter a valid token');
+				}
+			}
+
+			async function fetchData() {
+				try {
+					const res = await fetch(API_URL);
+					if (!res.ok) throw new Error('Failed to fetch data');
+					const data = await res.json();
+					const list = document.getElementById('data-list');
+					list.innerHTML = data.map((item) => `<li>${item.id}: ${item.name} (${item.age}yr)</li>`).join('');
+				} catch (error) {
+					alert('Error fetching data: ' + error.message);
+				}
+			}
+
+			async function addData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('add-id').value.trim();
+				const name = document.getElementById('name').value.trim();
+				const age = document.getElementById('age').value.trim();
+				if (!id || !name || !age) return alert('Please enter ID, name, and age');
+
+				try {
+					const res = await fetch(API_URL, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${authToken}`,
+						},
+						body: JSON.stringify({ id: Number(id), name, age: Number(age) }),
+					});
+					if (!res.ok) throw new Error('Failed to add data');
+					document.getElementById('add-id').value = '';
+					document.getElementById('name').value = '';
+					document.getElementById('age').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error adding data: ' + error.message);
+				}
+			}
+
+			async function updateData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('update-id').value.trim();
+				const name = document.getElementById('update-name').value.trim();
+				const age = document.getElementById('update-age').value.trim();
+				if (!id || !name || !age) return alert('Please enter ID, new name, and new age');
+
+				try {
+					const res = await fetch(`${API_URL}/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${authToken}`,
+						},
+						body: JSON.stringify({ name, age: Number(age) }),
+					});
+					if (!res.ok) throw new Error('Failed to update data');
+					document.getElementById('update-id').value = '';
+					document.getElementById('update-name').value = '';
+					document.getElementById('update-age').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error updating data: ' + error.message);
+				}
+			}
+
+			async function deleteData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('delete-id').value.trim();
+				if (!id) return alert('Please enter ID');
+
+				try {
+					const res = await fetch(`${API_URL}/${id}`, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
+					if (!res.ok) throw new Error('Failed to delete data');
+					document.getElementById('delete-id').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error deleting data: ' + error.message);
+				}
+			}
+
+			window.onload = fetchData;
+		</script>
+	</body>
+</html>
+
+
+
+----
+
+
+htmx frontend
+
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー管理</title>
+    <script src="https://unpkg.com/htmx.org@1.9.5"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; }
+        input, button { margin: 5px; padding: 8px; }
+        ul { list-style: none; padding: 0; }
+        li { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #ddd; }
+        .form-container, .auth-container { display: flex; align-items: center; gap: 10px; }
+    </style>
+</head>
+<body>
+    <h1>ユーザー管理</h1>
+    
+    <div id="auth" class="auth-container">
+        <input type="text" id="authToken" placeholder="認証トークン">
+        <button onclick="setAuthToken()">ログイン</button>
+    </div>
+    
+    <form id="userForm" class="form-container" hx-post="https://your-worker-url/api/users" hx-trigger="submit" hx-target="#userList" hx-swap="outerHTML" style="display: none;">
+        <input type="text" name="name" placeholder="名前" required>
+        <input type="number" name="age" placeholder="年齢" required>
+        <button type="submit">追加</button>
+    </form>
+    
+    <ul id="userList" hx-get="https://your-worker-url/api/users" hx-trigger="load" hx-swap="outerHTML" style="display: none;"></ul>
+    
+    <template id="userTemplate">
+        <li class="form-container">
+            <input type="text" name="name" value="{{name}}" size="10">
+            <input type="number" name="age" value="{{age}}" size="5">
+            <button hx-put="https://your-worker-url/api/users/{{id}}" hx-include="closest li" hx-headers='{"Authorization": "Bearer " + localStorage.getItem("authToken") }'>更新</button>
+        ｓ    <button hx-delete="https://your-worker-url/api/users/{{id}}" hx-target="#userList" hx-swap="outerHTML" hx-headers='{"Authorization": "Bearer " + localStorage.getItem("authToken") }'>削除</button>
+        </li>
+    </template>
+    
+    <script>
+        function setAuthToken() {
+            const token = document.getElementById("authToken").value;
+            localStorage.setItem("authToken", token);
+            document.getElementById("auth").style.display = "none";
+            document.getElementById("userForm").style.display = "flex";
+            document.getElementById("userList").style.display = "block";
+            document.getElementById("userList").setAttribute("hx-headers", JSON.stringify({"Authorization": "Bearer " + token}));
+            document.getElementById("userList").setAttribute("hx-get", "https://your-worker-url/api/users");
+            htmx.trigger(document.getElementById("userList"), "load");
+        }
+    </script>
+</body>
+</html>
+
+ー
