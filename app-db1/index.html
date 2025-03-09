@@ -30,45 +30,45 @@
 		<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
 
 		<script>
-			const API_URL = 'https://d1-app1.muchagorou112.workers.dev/api/table0';
+			const API_URL0 = 'https://d1-app1.muchagorou112.workers.dev/api';
+			const API_URL = API_URL0 + '/table0';
 			let authToken = '';
 
 			async function authenticate() {
-			    authToken = document.getElementById('auth-token').value.trim();
-			    if (!authToken) {
-			        alert('Please enter a valid token');
-			        return;
-			    }
-			
-			    try {
-			        const res = await fetch(API_URL + '/auth-check', {
-			            method: 'GET',
-			            headers: {
-			                Authorization: `Bearer ${authToken}`,
-			            },
-			        });
-				    
-			     	const result = await res.json(); // see response body
+				authToken = document.getElementById('auth-token').value.trim();
+				if (!authToken) {
+					alert('Please enter a valid token');
+					return;
+				}
 
-			        if (!res.ok || !result.success) {
-			            throw new Error('Invalid token');
-			        }
-			
-			        alert('Authenticated successfully');
-			        document.getElementById('add-btn').disabled = false;
-			        document.getElementById('update-btn').disabled = false;
-			        document.getElementById('delete-btn').disabled = false;
-			    } catch (error) {
-			        alert('Authentication failed: Invalid token');
-			        authToken = '';
-			
-			        // 認証失敗時にボタンを無効化する
-			        document.getElementById('add-btn').disabled = true;
-			        document.getElementById('update-btn').disabled = true;
-			        document.getElementById('delete-btn').disabled = true;
-			    }
-}
+				try {
+					const res = await fetch(API_URL0 + '/auth-check', {
+						method: 'GET',
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
 
+					const result = await res.json(); // see response body
+
+					if (!res.ok || !result.success) {
+						throw new Error('Invalid token');
+					}
+
+					alert('Authenticated successfully');
+					document.getElementById('add-btn').disabled = false;
+					document.getElementById('update-btn').disabled = false;
+					document.getElementById('delete-btn').disabled = false;
+				} catch (error) {
+					alert('Authentication failed: Invalid token');
+					authToken = '';
+
+					// 認証失敗時にボタンを無効化する
+					document.getElementById('add-btn').disabled = true;
+					document.getElementById('update-btn').disabled = true;
+					document.getElementById('delete-btn').disabled = true;
+				}
+			}
 
 			async function fetchData() {
 				try {
