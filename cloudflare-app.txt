@@ -373,13 +373,22 @@ export default {
 			return new Response(null, { status: 204, headers: corsHeaders(req) });
 		}
 
+		// auth check
+		if (url.pathname === '/api/auth-check') {
+			if (authHeader !== `Bearer ${validToken}`) {
+				return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders() });
+			}
+			return new Response(JSON.stringify({ success: true }), responseHeaders());
+		}
+
 		if (url.pathname.startsWith('/api')) {
 			try {
 				const params = url.pathname.split('/').slice(2); // /api/{table}/{id}
 				const table = params[0];
 				const id = params[1];
 
-				const allowedTables = ['table0'];
+				// reject invalid table name
+				const allowedTables = ['table0', 'table1', 'table2'];
 				if (!allowedTables.includes(table)) {
 					return new Response(JSON.stringify({ error: 'Invalid table name' }), responseHeaders(400));
 				}
@@ -388,11 +397,6 @@ export default {
 					const query = id ? `SELECT * FROM ${table} WHERE id = ?;` : `SELECT * FROM ${table};`;
 					const { results } = id ? await env.DB.prepare(query).bind(id).all() : await env.DB.prepare(query).all();
 					return new Response(JSON.stringify(results), responseHeaders());
-				}
-
-				// Autholization
-				if (!authHeader || authHeader !== `Bearer ${validToken}`) {
-					return new Response(JSON.stringify({ error: 'Unauthorized' }), responseHeaders(401));
 				}
 
 				// reject no-JSON
@@ -466,6 +470,9 @@ test API on terminal
 curl -X GET https://d1-app1.muchagorou112.workers.dev/api/table0
 curl -X GET https://d1-app1.muchagorou112.workers.dev/api/table0/1
 
+curl -X GET "https://d1-app1.muchagorou112.workers.dev/api/auth-check" \
+     -H "Authorization: Bearer ---"
+
 curl -X POST https://d1-app1.muchagorou112.workers.dev/api/table0 \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer ---" \
@@ -514,18 +521,43 @@ curl -X DELETE https://d1-app1.muchagorou112.workers.dev/api/table0/11 \
 		<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
 
 		<script>
-			const API_URL = 'https://d1-app1.muchagorou112.workers.dev/api/table0';
+			const API_URL0 = 'https://d1-app1.muchagorou112.workers.dev/api';
+			const API_URL = API_URL0 + '/table0';
 			let authToken = '';
 
-			function authenticate() {
+			async function authenticate() {
 				authToken = document.getElementById('auth-token').value.trim();
-				if (authToken) {
+				if (!authToken) {
+					alert('Please enter a valid token');
+					return;
+				}
+
+				try {
+					const res = await fetch(API_URL0 + '/auth-check', {
+						method: 'GET',
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
+
+					const result = await res.json(); // see response body
+
+					if (!res.ok || !result.success) {
+						throw new Error('Invalid token');
+					}
+
+					alert('Authenticated successfully');
 					document.getElementById('add-btn').disabled = false;
 					document.getElementById('update-btn').disabled = false;
 					document.getElementById('delete-btn').disabled = false;
-					alert('Authenticated');
-				} else {
-					alert('Please enter a valid token');
+				} catch (error) {
+					alert('Authentication failed: Invalid token');
+					authToken = '';
+
+					// 認証失敗時にボタンを無効化する
+					document.getElementById('add-btn').disabled = true;
+					document.getElementById('update-btn').disabled = true;
+					document.getElementById('delete-btn').disabled = true;
 				}
 			}
 
