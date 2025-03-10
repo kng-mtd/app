@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>D1 App1</title>
+	</head>
+	<body>
+		<h1>All Data</h1>
+		<ul id="data-list"></ul>
+
+		<h2>Authentication</h2>
+		<input type="password" id="auth-token" placeholder="Enter Token" />
+		<button onclick="authenticate()">Authenticate</button>
+
+		<h2>Add Data</h2>
+		<input type="number" id="add-id" placeholder="ID" />
+		<input type="text" id="name" placeholder="Name" />
+		<input type="number" id="age" placeholder="Age" />
+		<button onclick="addData()" disabled id="add-btn">Add</button>
+
+		<h2>Update Data</h2>
+		<input type="number" id="update-id" placeholder="ID" />
+		<input type="text" id="update-name" placeholder="New Name" />
+		<input type="number" id="update-age" placeholder="New Age" />
+		<button onclick="updateData()" disabled id="update-btn">Update</button>
+
+		<h2>Delete Data</h2>
+		<input type="number" id="delete-id" placeholder="ID" />
+		<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
+
+		<script>
+			const API_URL0 = 'https://d1-app1.muchagorou112.workers.dev/api';
+			const API_URL = API_URL0 + '/table0';
+			let authToken = '';
+
+			async function authenticate() {
+				authToken = document.getElementById('auth-token').value.trim();
+				if (!authToken) {
+					alert('Please enter a valid token');
+					return;
+				}
+
+				try {
+					const res = await fetch(API_URL0 + '/auth-check', {
+						method: 'GET',
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
+
+					const result = await res.json(); // see response body
+
+					if (!res.ok || !result.success) {
+						throw new Error('Invalid token');
+					}
+
+					alert('Authenticated successfully');
+					document.getElementById('add-btn').disabled = false;
+					document.getElementById('update-btn').disabled = false;
+					document.getElementById('delete-btn').disabled = false;
+				} catch (error) {
+					alert('Authentication failed: Invalid token');
+					authToken = '';
+
+					document.getElementById('add-btn').disabled = true;
+					document.getElementById('update-btn').disabled = true;
+					document.getElementById('delete-btn').disabled = true;
+				}
+			}
+
+			async function fetchData() {
+				try {
+					const res = await fetch(API_URL);
+					if (!res.ok) throw new Error('Failed to fetch data');
+					const data = await res.json();
+					const list = document.getElementById('data-list');
+					list.innerHTML = data.map((item) => `<li>${item.id}: ${item.name} (${item.age}yr)</li>`).join('');
+				} catch (error) {
+					alert('Error fetching data: ' + error.message);
+				}
+			}
+
+			async function addData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('add-id').value.trim();
+				const name = document.getElementById('name').value.trim();
+				const age = document.getElementById('age').value.trim();
+				if (!id || !name || !age) return alert('Please enter ID, name, and age');
+
+				try {
+					const res = await fetch(API_URL, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${authToken}`,
+						},
+						body: JSON.stringify({ id: Number(id), name, age: Number(age) }),
+					});
+					if (!res.ok) throw new Error('Failed to add data');
+					document.getElementById('add-id').value = '';
+					document.getElementById('name').value = '';
+					document.getElementById('age').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error adding data: ' + error.message);
+				}
+			}
+
+			async function updateData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('update-id').value.trim();
+				const name = document.getElementById('update-name').value.trim();
+				const age = document.getElementById('update-age').value.trim();
+				if (!id || !name || !age) return alert('Please enter ID, new name, and new age');
+
+				try {
+					const res = await fetch(`${API_URL}/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${authToken}`,
+						},
+						body: JSON.stringify({ name, age: Number(age) }),
+					});
+					if (!res.ok) throw new Error('Failed to update data');
+					document.getElementById('update-id').value = '';
+					document.getElementById('update-name').value = '';
+					document.getElementById('update-age').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error updating data: ' + error.message);
+				}
+			}
+
+			async function deleteData() {
+				if (!authToken) return alert('Not authenticated');
+				const id = document.getElementById('delete-id').value.trim();
+				if (!id) return alert('Please enter ID');
+
+				try {
+					const res = await fetch(`${API_URL}/${id}`, {
+						method: 'DELETE',
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
+					if (!res.ok) throw new Error('Failed to delete data');
+					document.getElementById('delete-id').value = '';
+					fetchData();
+				} catch (error) {
+					alert('Error deleting data: ' + error.message);
+				}
+			}
+
+			window.onload = fetchData;
+		</script>
+	</body>
+</html>
