@@ -1,33 +1,74 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="dark">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>D1 App1</title>
+
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+
+		<style>
+			#data-list {
+				max-height: 300px;
+				overflow-y: auto;
+				padding: 10px;
+			}
+
+			/* Align forms horizontally */
+			.form-group {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+			}
+
+			.dark * {
+				background-color: #111;
+				color: white !important;
+			}
+			.dark input,
+			.dark #data-list {
+				background-color: #222;
+			}
+			.dark input::placeholder {
+				color: #aaa;
+			}
+		</style>
 	</head>
 	<body>
-		<h1>All Data</h1>
-		<ul id="data-list"></ul>
+		<div class="container">
+			<h3>All Data</h3>
+			<ul id="data-list"></ul>
 
-		<h2>Authentication</h2>
-		<input type="password" id="auth-token" placeholder="Enter Token" />
-		<button onclick="authenticate()">Authenticate</button>
+			<div class="form-group">
+				<h3>Authentication</h3>
+				<input type="password" id="auth-token" placeholder="Enter Token" />
+				<button onclick="authenticate()">Authenticate</button>
+			</div>
 
-		<h2>Add Data</h2>
-		<input type="number" id="add-id" placeholder="ID" />
-		<input type="text" id="name" placeholder="Name" />
-		<input type="number" id="age" placeholder="Age" />
-		<button onclick="addData()" disabled id="add-btn">Add</button>
+			<div class="form-group">
+				<h3>Add</h3>
+				<input type="number" id="add-id" placeholder="ID" />
+				<input type="text" id="name" placeholder="Name" />
+				<input type="number" id="age" placeholder="Age" />
+				<button onclick="addData()" disabled id="add-btn">Add</button>
+			</div>
 
-		<h2>Update Data</h2>
-		<input type="number" id="update-id" placeholder="ID" />
-		<input type="text" id="update-name" placeholder="New Name" />
-		<input type="number" id="update-age" placeholder="New Age" />
-		<button onclick="updateData()" disabled id="update-btn">Update</button>
+			<div class="form-group">
+				<h3>Update</h3>
+				<input type="number" id="update-id" placeholder="ID" />
+				<input type="text" id="update-name" placeholder="New Name" />
+				<input type="number" id="update-age" placeholder="New Age" />
+				<button onclick="updateData()" disabled id="update-btn">Update</button>
+			</div>
 
-		<h2>Delete Data</h2>
-		<input type="number" id="delete-id" placeholder="ID" />
-		<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
+			<div class="form-group">
+				<h3>Delete</h3>
+				<input type="number" id="delete-id" placeholder="ID" />
+				<button onclick="deleteData()" disabled id="delete-btn">Delete</button>
+			</div>
+		</div>
 
 		<script>
 			const API_URL0 = 'https://d1-app1.muchagorou112.workers.dev/api';
@@ -63,7 +104,6 @@
 					alert('Authentication failed: Invalid token');
 					authToken = '';
 
-					// 認証失敗時にボタンを無効化する
 					document.getElementById('add-btn').disabled = true;
 					document.getElementById('update-btn').disabled = true;
 					document.getElementById('delete-btn').disabled = true;
