@@ -143,21 +143,26 @@ wrangler d1 execute database0 --command "SELECT * FROM table0;" --remote
 Cloudflare D1 に CSV をインポートする
 
 sqlite3 local.db <<EOF
+drop table if exists table0;
 .mode csv
-.import penguins0.csv table1
+.import penguins0.csv table0
+drop table if exists table1;
+create table table1 as
+	select rowid as id,* from table0;
+drop table table0;
 .exit
 EOF
 
 sqlite3 local.db .dump > dump.sql
 
-reject or comment out from dump.sql
-
+add and fix(comment out) as below from dump.sql
 	--PRAGMA foreign_keys=OFF;
 	--BEGIN TRANSACTION;
+	drop table if exists table1;
 	--COMMIT;
 
 wrangler d1 execute database0 --file=dump.sql --remote
-
+rm local.db
 
 
 
