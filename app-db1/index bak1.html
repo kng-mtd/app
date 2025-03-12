@@ -10,37 +10,10 @@
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
 
 		<style>
-			.table-container {
-				max-height: 300px;
-				margin-bottom: 50px;
-				overflow-y: auto;
-				border: 1px solid #888;
-			}
-			table {
-				width: 100%;
-				border-collapse: collapse;
-			}
-			thead {
-				color: white;
-				position: sticky;
-				top: 0;
-			}
-			th,
-			td {
-				padding: 8px;
-				border-bottom: 1px solid #888;
-				text-align: left;
-				min-width: 100px;
-			}
-			tbody {
-				display: block;
+			#data-list {
 				max-height: 300px;
 				overflow-y: auto;
-			}
-			tr {
-				display: table;
-				width: 100%;
-				table-layout: fixed;
+				padding: 10px;
 			}
 
 			/* Align forms horizontally */
@@ -66,18 +39,7 @@
 	<body>
 		<div class="container">
 			<h3>All Data</h3>
-			<div class="table-container">
-				<table>
-					<thead>
-						<tr>
-							<th>ID</th>
-							<th>Name</th>
-							<th>Age</th>
-						</tr>
-					</thead>
-					<tbody id="data-list"></tbody>
-				</table>
-			</div>
+			<ul id="data-list"></ul>
 
 			<div class="form-group">
 				<h3>Authentication</h3>
@@ -153,8 +115,8 @@
 					const res = await fetch(API_URL);
 					if (!res.ok) throw new Error('Failed to fetch data');
 					const data = await res.json();
-					const tbody = document.getElementById('data-list');
-					tbody.innerHTML = data.map((item) => `<tr><td>${item.id}</td><td>${item.name}</td><td>${item.age}</td></tr>`).join('');
+					const list = document.getElementById('data-list');
+					list.innerHTML = data.map((item) => `<li>${item.id}: ${item.name} (${item.age}yr)</li>`).join('');
 				} catch (error) {
 					alert('Error fetching data: ' + error.message);
 				}
