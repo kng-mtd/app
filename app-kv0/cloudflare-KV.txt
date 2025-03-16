@@ -1,0 +1,139 @@
+Cloudflare KV を使った To-Do List アプリを作る場合、以下のような構成が考えられます。
+
+### **技術スタック**
+- **データストア**: Cloudflare KV（キー・バリューストア）
+- **フロントエンド**: htmx + HTML（シンプルな構成）
+- **バックエンド**: Cloudflare Workers（API サーバー）
+- **デプロイ**: GitHub Pages（フロントエンド）、Cloudflare Workers（API）
+
+### **機能**
+1. **タスクの追加**
+2. **タスクの取得**
+3. **タスクの削除**
+4. **タスクの完了マーク**
+
+### **大まかな実装方針**
+1. **Cloudflare Workers** で API を作成（KV を操作する）
+2. **htmx** を使ってフロントエンドを構築
+3. **GitHub Pages** にフロントエンドをデプロイし、Cloudflare Workers の API と連携
+
+
+
+cd ~
+(npm install -g wrangler)
+(npm update -g wrangler)
+wrangler --version
+wrangler login
+
+mkdir kv-app0
+wrangler init kv-app0
+
+cd kv-app0
+code .
+
+
+
+Cloudflare Dashboard → KV
+新しいネームスペースを作成（例: `todo`）
+kv id発行 ---  
+
+`wrangler.jsonc` に KV の設定を追加:
+
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "kv-app0",
+	"main": "src/index.js",
+	"compatibility_date": "2025-03-13",
+	"observability": {
+		"enabled": true
+	},
+	"kv_namespaces": [
+		{
+			"binding": "todo",
+			"id": "---"
+		}
+	]
+}
+
+
+
+### **Cloudflare Workers のコード**
+
+index.js
+
+```javascript
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname === "/todos") {
+      if (request.method === "GET") return getTodos(env);
+      if (request.method === "POST") return addTodo(request, env);
+    }
+    if (url.pathname.startsWith("/todo/") && request.method === "DELETE") {
+      return deleteTodo(url.pathname.split("/").pop(), env);
+    }
+    return new Response("Not Found", { status: 404 });
+  },
+};
+
+async function getTodos(env) {
+  const keys = await env.TODO_KV.list();
+  const todos = await Promise.all(keys.keys.map(k => env.TODO_KV.get(k.name, "json")));
+  return new Response(JSON.stringify(todos), { headers: { "Content-Type": "application/json" } });
+}
+
+async function addTodo(request, env) {
+  const { title } = await request.json();
+  const id = crypto.randomUUID();
+  await env.TODO_KV.put(id, JSON.stringify({ id, title, done: false }));
+  return new Response(JSON.stringify({ id, title, done: false }), { headers: { "Content-Type": "application/json" } });
+}
+
+async function deleteTodo(id, env) {
+  await env.TODO_KV.delete(id);
+  return new Response("Deleted", { status: 200 });
+}
+```
+
+
+npx wrangler deploy
+
+
+
+
+## **2. フロントエンドの作成（htmx 使用）**  
+Cloudflare Workers の API とやりとりするシンプルな HTML + htmx で UI を作ります。
+
+```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+</head>
+<body>
+    <h1>To-Do List</h1>
+
+    <!-- 新しいタスクの追加 -->
+    <form hx-post="/todos" hx-trigger="submit" hx-target="#todo-list" hx-swap="beforeend">
+        <input type="text" name="title" required>
+        <button type="submit">追加</button>
+    </form>
+
+    <!-- To-Do リスト -->
+    <ul id="todo-list" hx-get="/todos" hx-trigger="load" hx-target="#todo-list" hx-swap="innerHTML">
+        <!-- タスクがここに追加される -->
+    </ul>
+
+</body>
+</html>
+```
+
+
+GitHub Pages に HTML をアップロード
+
+
+
+
