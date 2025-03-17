@@ -36,6 +36,9 @@
 			<button type="submit">Add</button>
 		</form>
 
+		<!-- Refresh button -->
+		<button id="refresh-button">Refresh List</button>
+
 		<!-- Task list -->
 		<ul id="todo-list"></ul>
 
@@ -76,7 +79,6 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ title }),
 				});
-				// const newTodo = await response.json();
 				loadTodos(); // Reload task list
 				todoForm.reset();
 			});
@@ -86,7 +88,6 @@
 				const response = await fetch(`${url}/todos/${id}`, {
 					method: 'PUT',
 				});
-				const updatedTodo = await response.json();
 				loadTodos(); // Reload task list
 			}
 
@@ -97,6 +98,9 @@
 				});
 				loadTodos(); // Reload task list
 			}
+
+			// Refresh button event listener
+			document.getElementById('refresh-button').addEventListener('click', loadTodos);
 
 			// Load tasks on page load
 			loadTodos();
