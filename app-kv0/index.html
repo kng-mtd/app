@@ -1,23 +1,105 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>To-Do List</title>
-		<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				max-width: 400px;
+				margin: 20px auto;
+			}
+			ul {
+				list-style: none;
+				padding: 0;
+			}
+			li {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				padding: 8px;
+				border-bottom: 1px solid #ddd;
+			}
+			button {
+				margin-left: 10px;
+				cursor: pointer;
+			}
+		</style>
 	</head>
 	<body>
-		<h1>To-Do List</h1>
+		<h2>To-Do List</h2>
 
-		<!-- 新しいタスクの追加 -->
-		<form hx-post="/todos" hx-trigger="submit" hx-target="#todo-list" hx-swap="beforeend">
-			<input type="text" name="title" required />
-			<button type="submit">追加</button>
+		<!-- Task input form -->
+		<form id="todo-form">
+			<input type="text" id="todo-title" name="title" placeholder="New task" required />
+			<button type="submit">Add</button>
 		</form>
 
-		<!-- To-Do リスト -->
-		<ul id="todo-list" hx-get="/todos" hx-trigger="load" hx-target="#todo-list" hx-swap="innerHTML">
-			<!-- タスクがここに追加される -->
-		</ul>
+		<!-- Task list -->
+		<ul id="todo-list"></ul>
+
+		<script>
+			const url = 'https://kv-app0.muchagorou112.workers.dev';
+			const todoForm = document.getElementById('todo-form');
+			const todoList = document.getElementById('todo-list');
+
+			// Load tasks when the page loads
+			async function loadTodos() {
+				const response = await fetch(`${url}/todos`);
+				const todos = await response.json();
+				renderTodos(todos);
+			}
+
+			// Render the task list
+			function renderTodos(todos) {
+				console.log('Rendering todos:', todos); // Debug log
+				todoList.innerHTML = ''; // Clear the list
+				todos.forEach((todo) => {
+					const li = document.createElement('li');
+					li.dataset.id = todo.id;
+					li.innerHTML = `
+                    <span>${todo.done ? '✅' : '⬜'} ${todo.title}</span>
+                    <button onclick="toggleTodoStatus('${todo.id}')">Toggle</button>
+                    <button onclick="deleteTodo('${todo.id}')">Delete</button>
+                	`;
+					todoList.appendChild(li);
+				});
+			}
+
+			// Add a new task
+			todoForm.addEventListener('submit', async (event) => {
+				event.preventDefault();
+				const title = document.getElementById('todo-title').value;
+				const response = await fetch(`${url}/todos`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ title }),
+				});
+				// const newTodo = await response.json();
+				loadTodos(); // Reload task list
+				todoForm.reset();
+			});
+
+			// Toggle task completion status
+			async function toggleTodoStatus(id) {
+				const response = await fetch(`${url}/todos/${id}`, {
+					method: 'PUT',
+				});
+				const updatedTodo = await response.json();
+				loadTodos(); // Reload task list
+			}
+
+			// Delete a task
+			async function deleteTodo(id) {
+				const response = await fetch(`${url}/todos/${id}`, {
+					method: 'DELETE',
+				});
+				loadTodos(); // Reload task list
+			}
+
+			// Load tasks on page load
+			loadTodos();
+		</script>
 	</body>
 </html>
