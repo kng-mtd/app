@@ -1,3 +1,80 @@
+Cloudflare KV（Key-Value Storage）の主要な **プロパティとメソッド** を整理しました。  
+
+---
+
+## **📌 KVの主要メソッド**
+Cloudflare Workers の `env.MY_KV` に対して呼び出せるメソッドは以下の通りです。
+
+### **1️⃣ データを保存（put）**
+```javascript
+await env.MY_KV.put("key", "value");
+```
+✅ **キー (`"key"`) に `"value"` を保存**  
+✅ **すでにキーが存在する場合は上書き**  
+
+#### **オプション付きの保存**
+```javascript
+await env.MY_KV.put("session:12345", "user_data", {
+  expiration: 1710000000, // Unixタイムスタンプ（秒単位）
+  expirationTtl: 3600,    // 1時間（TTL）
+});
+```
+✅ **`expiration`** → 指定した Unix タイム（秒単位）にデータが削除される  
+✅ **`expirationTtl`** → 〇〇秒後にデータが削除される  
+
+---
+
+### **2️⃣ データを取得（get）**
+```javascript
+const value = await env.MY_KV.get("key");
+console.log(value);
+```
+✅ **キー `"key"` に保存されたデータを取得**  
+✅ **データが存在しない場合は `null` を返す**  
+
+#### **JSONデータの取得**
+```javascript
+const value = await env.MY_KV.get("user:123", { type: "json" });
+console.log(value.name); // JSONとして扱える
+```
+✅ `{ type: "json" }` を指定すると `JSON.parse()` しなくてもOK  
+
+#### **バイナリデータの取得**
+```javascript
+const binaryData = await env.MY_KV.get("image:123", { type: "arrayBuffer" });
+const uint8Array = new Uint8Array(binaryData);
+```
+✅ `type: "arrayBuffer"` を指定すると **バイナリデータとして取得** できる  
+
+---
+
+### **3️⃣ データを削除（delete）**
+```javascript
+await env.MY_KV.delete("key");
+```
+✅ `"key"` に保存されたデータを削除  
+
+---
+
+### **4️⃣ キーの一覧を取得（list）**
+```javascript
+const keys = await env.MY_KV.list();
+console.log(keys.keys);
+```
+✅ **KVに保存されているキーの一覧を取得**  
+✅ `keys` にキーの配列が含まれる  
+
+#### **特定のプレフィックス（接頭辞）を指定**
+```javascript
+const keys = await env.MY_KV.list({ prefix: "session:" });
+console.log(keys.keys);
+```
+✅ `"session:"` で始まるキーだけを取得  
+
+---
+
+
+
 Cloudflare KV を使った To-Do List アプリを作る場合、以下のような構成が考えられます。
 
 ### **技術スタック**
@@ -600,93 +677,6 @@ index.html
 
 GitHub Pages に HTML をアップロード
 
-
-
-htmx を使用したシンプルなフロントエンドのコードを作成しました。  
-Cloudflare KV を利用した To-Do リストのフロントエンドです。  
-
-- **機能**  
-  - タスクの取得 (`GET /todos`)  
-  - タスクの追加 (`POST /todos`)  
-  - タスクの削除 (`DELETE /todos/{id}`)  
-  - タスクの完了/未完了を切り替え (`PUT /todos/{id}`)  
-
----
-
-### **`index.html`**
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List</title>
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 400px; margin: 20px auto; }
-        ul { list-style: none; padding: 0; }
-        li { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #ddd; }
-        button { margin-left: 10px; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <h2>To-Do List</h2>
-
-    <!-- タスク追加フォーム -->
-    <form hx-post="/todos" hx-trigger="submit" hx-target="#todo-list" hx-swap="outerHTML">
-        <input type="text" name="title" placeholder="New task" required>
-        <button type="submit">Add</button>
-    </form>
-
-    <!-- タスクリスト -->
-    <ul id="todo-list" hx-get="/todos" hx-trigger="load" hx-swap="outerHTML"></ul>
-
-</body>
-</html>
-```
-
----
-
-### **サーバーのレスポンスを処理するエンドポイント**
-Cloudflare Workers の `fetch` メソッドから返す HTML は次のように構成します。
-
-#### **`getTodos` のレスポンス**
-```javascript
-async function getTodos(env) {
-  const keys = await env.todo.list();
-  const todos = await Promise.all(keys.keys.map(k => env.todo.get(k.name, "json")));
-
-  // HTML を返す
-  const html = `<ul id="todo-list">
-    ${todos.map(todo => `
-      <li>
-        <span>${todo.done ? "✅" : "⬜"} ${todo.title}</span>
-        <button hx-put="/todos/${todo.id}" hx-trigger="click" hx-target="#todo-list" hx-swap="outerHTML">
-          Toggle
-        </button>
-        <button hx-delete="/todos/${todo.id}" hx-trigger="click" hx-target="#todo-list" hx-swap="outerHTML">
-          Delete
-        </button>
-      </li>
-    `).join("")}
-  </ul>`;
-
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
-}
-```
-
----
-
-### **ポイント**
-- **htmx を活用**  
-  - `hx-get="/todos" hx-trigger="load"` で、ページ読み込み時にタスクリストを取得  
-  - `hx-post="/todos"` で、新しいタスクを追加後、自動でリストを更新  
-  - `hx-delete="/todos/{id}"` で、タスク削除時にリストを更新  
-  - `hx-put="/todos/{id}"` で、完了/未完了を切り替え  
-
-- **サーバーから HTML を返す**  
-  - `getTodos` は HTML のリストを生成し、直接返す  
-  - JavaScript を書かずに、htmx で動的に更新  
 
 
 
