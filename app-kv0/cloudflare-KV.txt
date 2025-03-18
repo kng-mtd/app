@@ -512,23 +512,19 @@ index.html
 				padding: 8px;
 				border-bottom: 1px solid #ddd;
 			}
-			button {
-				margin-left: 10px;
-				cursor: pointer;
-			}
 		</style>
 	</head>
 	<body>
 		<h2>To-Do List</h2>
+
+		<!-- Refresh button -->
+		<button id="load">Refresh</button>
 
 		<!-- Task input form -->
 		<form id="todo-form">
 			<input type="text" id="todo-title" name="title" placeholder="New task" required />
 			<button type="submit">Add</button>
 		</form>
-
-		<!-- Refresh button -->
-		<button id="refresh-button">Refresh List</button>
 
 		<!-- Task list -->
 		<ul id="todo-list"></ul>
@@ -550,6 +546,7 @@ index.html
 				console.log('Rendering todos:', todos); // Debug log
 				todoList.innerHTML = ''; // Clear the list
 				todos.forEach((todo) => {
+					if (!todo) return;
 					const li = document.createElement('li');
 					li.dataset.id = todo.id;
 					li.innerHTML = `
@@ -570,8 +567,8 @@ index.html
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ title }),
 				});
-				loadTodos(); // Reload task list
 				todoForm.reset();
+				loadTodos(); // Reload task list
 			});
 
 			// Toggle task completion status
@@ -591,7 +588,7 @@ index.html
 			}
 
 			// Refresh button event listener
-			document.getElementById('refresh-button').addEventListener('click', loadTodos);
+			document.getElementById('load').addEventListener('click', loadTodos);
 
 			// Load tasks on page load
 			loadTodos();
