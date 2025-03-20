@@ -572,11 +572,22 @@ index.html
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>To-Do List</title>
+		<!-- Google Fonts -->
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+
+		<!-- CSS Reset -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<!-- Milligram CSS -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
 		<style>
 			body {
 				font-family: Arial, sans-serif;
-				max-width: 400px;
-				margin: 20px auto;
+				max-width: 600px;
+				margin: 0 auto;
+			}
+			#todo-form {
+				display: flex;
+				margin-bottom: 20px;
 			}
 			ul {
 				list-style: none;
@@ -586,16 +597,12 @@ index.html
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
-				padding: 8px;
 				border-bottom: 1px solid #ddd;
 			}
 		</style>
 	</head>
 	<body>
 		<h2>To-Do List</h2>
-
-		<!-- Refresh button -->
-		<button id="load">Refresh</button>
 
 		<!-- Task input form -->
 		<form id="todo-form">
@@ -605,6 +612,9 @@ index.html
 
 		<!-- Task list -->
 		<ul id="todo-list"></ul>
+
+		<!-- Refresh button -->
+		<button id="load">Refresh</button>
 
 		<script>
 			const url = 'https://kv-app0.muchagorou112.workers.dev';
@@ -627,8 +637,8 @@ index.html
 					const li = document.createElement('li');
 					li.dataset.id = todo.id;
 					li.innerHTML = `
-                    <span>${todo.done ? '✅' : '⬜'} ${todo.title}</span>
-                    <button onclick="toggleTodoStatus('${todo.id}')">Toggle</button>
+                    <input type="checkbox" ${todo.done ? 'checked' : ''} onclick="toggleTodoStatus('${todo.id}')" />
+                    <span>${todo.title}</span>
                     <button onclick="deleteTodo('${todo.id}')">Delete</button>
                 	`;
 					todoList.appendChild(li);
@@ -672,6 +682,8 @@ index.html
 		</script>
 	</body>
 </html>
+
+
 
 
 
