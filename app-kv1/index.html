@@ -1,1 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Cloudflare KV API Demo</title>
+	</head>
+	<body>
+		<h1>Cloudflare KV API Demo</h1>
 
+		<input type="text" id="key" placeholder="Key" />
+		<input type="text" id="value" placeholder="Value" />
+		<button onclick="save()">Save</button>
+		<button onclick="load()">Load</button>
+		<button onclick="remove()">Delete</button>
+		<button onclick="listKeys()">List Keys</button>
+
+		<p id="result"></p>
+
+		<script>
+			const BASE_URL = 'https://kv-app1.muchagorou112.workers.dev';
+			const app = 'app1'; // kv prefix
+
+			async function save() {
+				const key = document.getElementById('key').value;
+				const value = document.getElementById('value').value;
+				const res = await fetch(`${BASE_URL}/kv/set`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ app, key, value }),
+				}).then((res) => res.json());
+				document.getElementById('result').innerText = JSON.stringify(res);
+			}
+
+			async function load() {
+				const key = document.getElementById('key').value;
+				try {
+					const value = await fetch(`${BASE_URL}/kv/get/${app}/${key}`).then((res) => res.text());
+					document.getElementById('result').innerText = value;
+				} catch (e) {
+					document.getElementById('result').innerText = 'Not Found';
+				}
+			}
+
+			async function remove() {
+				const key = document.getElementById('key').value;
+				const res = await fetch(`${BASE_URL}/kv/delete/${app}/${key}`, { method: 'DELETE' }).then((res) => res.json());
+				document.getElementById('result').innerText = JSON.stringify(res);
+			}
+
+			async function listKeys() {
+				const res = await fetch(`${BASE_URL}/kv/list/${app}`).then((res) => res.json());
+				document.getElementById('result').innerText = JSON.stringify(res);
+			}
+		</script>
+	</body>
+</html>
