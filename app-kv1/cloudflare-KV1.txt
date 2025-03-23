@@ -408,3 +408,488 @@ if (compressedBase64) {
 圧縮して保存するなら、基本は `gzip + ArrayBuffer` で OK です。Base64 は JSON のみを扱う場合に便利ですが、データサイズは少し増えます。
 
 Cloudflare KV に大量のデータを保存するなら、**gzip 圧縮を活用することでパフォーマンスとコストを改善** できます！ 🚀
+
+
+
+
+
+認証と認可、バルク操作、TTL付きデータ保存、検索機能、データ更新のサポート、データのバックアップと復元を加えたAPIのコードを作成しました。
+
+```javascript
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const { method } = req;
+
+    // CORS Middleware
+    const withCors = (res) => {
+      res.headers.set('Access-Control-Allow-Origin', '*');
+      res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      return res;
+    };
+
+    // 認証と認可
+    const authenticate = (req) => {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader || authHeader !== 'Bearer YOUR_API_KEY') {
+        return new Response('Unauthorized', { status: 401 });
+      }
+      return null; // 認証が成功した場合はnullを返す
+    };
+
+    // Preflight req Handling (OPTIONS method)
+    if (method === 'OPTIONS') {
+      return withCors(new Response(null, { status: 204 }));
+    }
+
+    // バルク操作 (POST /kv/bulk-set)
+    if (url.pathname === '/kv/bulk-set' && method === 'POST') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      try {
+        const { items } = await req.json();
+        if (!Array.isArray(items)) return withCors(new Response('Items must be an array', { status: 400 }));
+
+        for (const { app, key, value, ttl } of items) {
+          if (!app || !key || value === undefined) {
+            return withCors(new Response('Missing app, key, or value', { status: 400 }));
+          }
+
+          const options = ttl ? { expirationTtl: ttl } : {};
+          await env.store0.put(`${app}:${key}`, JSON.stringify(value), options);
+        }
+
+        return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response(error.toString(), { status: 500 }));
+      }
+    }
+
+    // TTL付きデータ保存 (POST /kv/set)
+    if (url.pathname === '/kv/set' && method === 'POST') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      try {
+        const { app, key, value, ttl } = await req.json();
+        if (!app || !key || value === undefined) {
+          return withCors(new Response('Missing app, key, or value', { status: 400 }));
+        }
+
+        const options = ttl ? { expirationTtl: ttl } : {};
+        await env.store0.put(`${app}:${key}`, JSON.stringify(value), options);
+
+        return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response(error.toString(), { status: 500 }));
+      }
+    }
+
+    // 検索機能 (GET /kv/list/:app)
+    if (url.pathname.startsWith('/kv/list/') && method === 'GET') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      const [, , , app] = url.pathname.split('/');
+      if (!app) return withCors(new Response('Missing app', { status: 400 }));
+
+      try {
+        const list = await env.store0.list({ prefix: `${app}:` });
+        const keys = list.keys.map((k) => k.name.replace(`${app}:`, ''));
+        return withCors(new Response(JSON.stringify(keys), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response('Error listing data', { status: 500 }));
+      }
+    }
+
+    // データ更新のサポート (PUT /kv/update)
+    if (url.pathname === '/kv/update' && method === 'PUT') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      try {
+        const { app, key, newValue } = await req.json();
+        if (!app || !key || newValue === undefined) {
+          return withCors(new Response('Missing app, key, or new value', { status: 400 }));
+        }
+
+        const oldValue = await env.store0.get(`${app}:${key}`);
+        if (!oldValue) return withCors(new Response('Key not found', { status: 404 }));
+
+        await env.store0.put(`${app}:${key}`, JSON.stringify(newValue));
+        return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response('Error updating data', { status: 500 }));
+      }
+    }
+
+    // データのバックアップと復元 (GET /kv/backup, POST /kv/restore)
+    if (url.pathname === '/kv/backup' && method === 'GET') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      try {
+        const list = await env.store0.list({});
+        const backupData = await Promise.all(
+          list.keys.map(async (k) => {
+            const value = await env.store0.get(k.name);
+            return { key: k.name, value: JSON.parse(value) };
+          })
+        );
+        return withCors(new Response(JSON.stringify(backupData), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response('Error backing up data', { status: 500 }));
+      }
+    }
+
+    if (url.pathname === '/kv/restore' && method === 'POST') {
+      const authError = authenticate(req);
+      if (authError) return authError;
+
+      try {
+        const { backupData } = await req.json();
+        if (!Array.isArray(backupData)) return withCors(new Response('Backup data must be an array', { status: 400 }));
+
+        for (const { key, value } of backupData) {
+          if (!key || value === undefined) {
+            return withCors(new Response('Invalid backup data format', { status: 400 }));
+          }
+          await env.store0.put(key, JSON.stringify(value));
+        }
+
+        return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      } catch (error) {
+        return withCors(new Response('Error restoring data', { status: 500 }));
+      }
+    }
+
+    // 404 Not Found
+    return withCors(new Response('Not Found', { status: 404 }));
+  },
+};
+```
+
+### 機能の詳細：
+1. **認証と認可**:
+   - `authenticate`関数で、`Authorization`ヘッダーに含まれるAPIキーを確認します。
+   - `Bearer YOUR_API_KEY`が正しい場合のみリクエストを受け入れます。
+
+`Bearer YOUR_API_KEY` は、APIリクエストのヘッダーに認証情報として追加する文字列です。この形式は、**Bearerトークン認証**と呼ばれ、APIアクセスのセキュリティを確保するためによく使用されます。
+
+具体的には、`YOUR_API_KEY` をあなたが設定したAPIキーに置き換えます。このAPIキーは、APIの利用を許可されたユーザーやアプリケーションに割り当てられたもので、リクエストが許可されたものかを判定するために使われます。
+
+例えば、もしAPIキーが `1234567890abcdef` であれば、認証ヘッダーは次のようになります：
+
+```bash
+Authorization: Bearer 1234567890abcdef
+```
+
+この`Authorization` ヘッダーは、APIサーバーにリクエストが送られる際に、リクエストが認証されたものであるかどうかを判断するために使用されます。APIキーが無効、または指定されていない場合、サーバーは `401 Unauthorized` エラーを返します。
+
+`YOUR_API_KEY` という部分は、実際に自分が設定したAPIキーに置き換えてください。
+if (!authHeader || authHeader !== 'Bearer 1234567890abcdef')
+
+
+
+2. **バルク操作** (`POST /kv/bulk-set`):
+   - 複数のデータを一度に保存します。リクエストボディには`items`という配列で複数のキーと値を指定できます。
+   - 各アイテムにはオプションで`ttl`（有効期限）を設定できます。
+
+3. **TTL付きデータ保存** (`POST /kv/set`):
+   - 通常の`set`操作ですが、`ttl`オプションを指定することでデータの有効期限を設定できます。
+
+4. **検索機能** (`GET /kv/list/:app`):
+   - 指定したアプリ名で始まるキーをリスト化します。
+
+5. **データ更新のサポート** (`PUT /kv/update`):
+   - 既存のキーの値を更新します。指定したキーが存在しない場合は404エラーを返します。
+
+6. **データのバックアップと復元**:
+   - `GET /kv/backup`: 現在のすべてのキーとその値をバックアップします。
+   - `POST /kv/restore`: バックアップデータを復元します。
+
+
+
+以下は、各機能を確認するための `curl` コマンドです。`YOUR_API_KEY` は実際に使用するAPIキーに置き換えてください。
+
+---
+
+### 1. **認証と認可**
+
+認証を通過するためには、`Authorization` ヘッダーに `Bearer YOUR_API_KEY` を追加します。
+
+```bash
+curl -X GET "https://your-api-url/kv/list/someapp" \
+-H "Authorization: Bearer YOUR_API_KEY"
+```
+
+---
+
+### 2. **バルク操作 (POST /kv/bulk-set)**
+
+複数のデータを一度に保存するには、以下のように`curl`を使います。
+
+```bash
+curl -X POST "https://your-api-url/kv/bulk-set" \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_API_KEY" \
+-d '{
+  "items": [
+    { "app": "someapp", "key": "key1", "value": "value1", "ttl": 3600 },
+    { "app": "someapp", "key": "key2", "value": "value2" }
+  ]
+}'
+```
+
+---
+
+### 3. **TTL付きデータ保存 (POST /kv/set)**
+
+`ttl` オプション付きでデータを保存します。
+
+```bash
+curl -X POST "https://your-api-url/kv/set" \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_API_KEY" \
+-d '{
+  "app": "someapp",
+  "key": "key1",
+  "value": "value1",
+  "ttl": 3600
+}'
+```
+
+---
+
+### 4. **検索機能 (GET /kv/list/:app)**
+
+指定されたアプリに関連するキーのリストを取得します。
+
+```bash
+curl -X GET "https://your-api-url/kv/list/someapp" \
+-H "Authorization: Bearer YOUR_API_KEY"
+```
+
+---
+
+### 5. **データ更新のサポート (PUT /kv/update)**
+
+既存のデータを更新します。指定したキーが存在しない場合は404エラーが返されます。
+
+```bash
+curl -X PUT "https://your-api-url/kv/update" \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_API_KEY" \
+-d '{
+  "app": "someapp",
+  "key": "key1",
+  "newValue": "updated_value"
+}'
+```
+
+---
+
+### 6. **データのバックアップ (GET /kv/backup)**
+
+現在のすべてのキーとその値をバックアップします。
+
+```bash
+curl -X GET "https://your-api-url/kv/backup" \
+-H "Authorization: Bearer YOUR_API_KEY"
+```
+
+---
+
+### 7. **データの復元 (POST /kv/restore)**
+
+バックアップデータを復元します。バックアップデータはJSON形式で渡します。
+
+```bash
+curl -X POST "https://your-api-url/kv/restore" \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_API_KEY" \
+-d '{
+  "backupData": [
+    { "key": "someapp:key1", "value": "restored_value1" },
+    { "key": "someapp:key2", "value": "restored_value2" }
+  ]
+}'
+```
+
+---
+
+### 各機能の説明:
+
+- **`-X`**: 使用するHTTPメソッド（GET、POST、PUTなど）を指定します。
+- **`-H`**: HTTPヘッダーを指定します。`Authorization` ヘッダーで認証情報を渡します。
+- **`-d`**: リクエストボディとして送信するデータを指定します（POST、PUTリクエスト用）。
+
+
+
+
+
+### 1. **HTML構造**
+
+まず、APIとやり取りするための基本的なHTML構造を作成します。ここでは、データの保存や取得、キーの一覧表示を行うためのフォームを作成しています。
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Frontend</title>
+</head>
+<body>
+  <h1>API Interaction</h1>
+
+  <h2>Create or Update Data</h2>
+  <form id="setDataForm">
+    <input type="text" id="setApp" placeholder="App Name" required>
+    <input type="text" id="setKey" placeholder="Key" required>
+    <textarea id="setValue" placeholder="Value" required></textarea>
+    <input type="number" id="setTTL" placeholder="TTL (seconds)">
+    <button type="submit">Save Data</button>
+  </form>
+
+  <h2>Retrieve Data</h2>
+  <form id="getDataForm">
+    <input type="text" id="getApp" placeholder="App Name" required>
+    <input type="text" id="getKey" placeholder="Key" required>
+    <button type="submit">Get Data</button>
+  </form>
+
+  <h2>List Keys</h2>
+  <form id="listDataForm">
+    <input type="text" id="listApp" placeholder="App Name" required>
+    <button type="submit">List Keys</button>
+  </form>
+
+  <h2>Output</h2>
+  <pre id="output"></pre>
+
+  <script src="app.js"></script>
+</body>
+</html>
+```
+
+### 2. **JavaScriptコード (app.js)**
+
+次に、APIと通信を行うためのJavaScriptコードを作成します。ここでは、フォームの送信時に`fetch`を使ってAPIにリクエストを送信し、そのレスポンスを画面に表示します。
+
+```javascript
+const apiUrl = 'https://your-api-url'; // Replace with your actual API URL
+const apiKey = 'YOUR_API_KEY'; // Replace with your actual API key
+
+// Function to display the API response
+const showOutput = (response) => {
+  document.getElementById('output').textContent = JSON.stringify(response, null, 2);
+};
+
+// Handle the "Set Data" form submission
+document.getElementById('setDataForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const app = document.getElementById('setApp').value;
+  const key = document.getElementById('setKey').value;
+  const value = document.getElementById('setValue').value;
+  const ttl = document.getElementById('setTTL').value || null;
+
+  try {
+    const response = await fetch(`${apiUrl}/kv/set`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({ app, key, value, ttl })
+    });
+    const data = await response.json();
+    showOutput(data);
+  } catch (error) {
+    showOutput({ error: error.message });
+  }
+});
+
+// Handle the "Get Data" form submission
+document.getElementById('getDataForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const app = document.getElementById('getApp').value;
+  const key = document.getElementById('getKey').value;
+
+  try {
+    const response = await fetch(`${apiUrl}/kv/get/${app}/${key}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    const data = await response.text();
+    showOutput(data);
+  } catch (error) {
+    showOutput({ error: error.message });
+  }
+});
+
+// Handle the "List Keys" form submission
+document.getElementById('listDataForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const app = document.getElementById('listApp').value;
+
+  try {
+    const response = await fetch(`${apiUrl}/kv/list/${app}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+    const data = await response.json();
+    showOutput(data);
+  } catch (error) {
+    showOutput({ error: error.message });
+  }
+});
+```
+
+### 3. **各部分の説明**
+
+- **HTML部分**:
+  - `setDataForm`: データを保存するためのフォーム。アプリ名、キー、値、およびTTLを入力します。
+  - `getDataForm`: データを取得するためのフォーム。アプリ名とキーを入力します。
+  - `listDataForm`: アプリに関連するキーを一覧表示するフォーム。
+  - 結果は`<pre>`タグに表示され、JSON形式で出力されます。
+
+- **JavaScript部分**:
+  - **setData**: データを保存するためのフォームが送信されると、`/kv/set`エンドポイントに`POST`リクエストを送信します。
+  - **getData**: データを取得するためのフォームが送信されると、`/kv/get/:app/:key`エンドポイントに`GET`リクエストを送信します。
+  - **listKeys**: アプリ名に関連するキーを一覧表示するために、`/kv/list/:app`エンドポイントに`GET`リクエストを送信します。
+
+- **APIとの通信**:
+  - `YOUR_API_KEY`には、実際のAPIキーを指定してください。
+  - `https://your-api-url`には、APIのURLを指定してください。
+
+### 4. **実行方法**
+
+1. `index.html`と`app.js`ファイルを同じディレクトリに配置します。
+2. `index.html`をブラウザで開きます。
+3. 各フォームを使って、APIにリクエストを送信し、結果を確認します。
+
+### 例: リクエストとレスポンス
+
+1. **データ作成・更新**: 
+   - 入力: `app = "someapp"`, `key = "user1"`, `value = "John Doe"`, `ttl = 3600`
+   - レスポンス: `{ "success": true }`
+
+2. **データ取得**:
+   - 入力: `app = "someapp"`, `key = "user1"`
+   - レスポンス: `"John Doe"`
+
+3. **キー一覧表示**:
+   - 入力: `app = "someapp"`
+   - レスポンス: `["user1", "user2"]`
+
