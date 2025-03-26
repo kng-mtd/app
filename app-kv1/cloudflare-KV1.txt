@@ -16,7 +16,7 @@ Cloudflare Workers を使って、Cloudflare KV (ex. store0) にアクセスす�
 | メソッド | エンドポイント | 内容 |
 |----------|--------------|------|
 | `POST`   | `/kv/set`    | データを保存 |
-| `GET`    | `/kv/get`    | データを取得 |
+| `GET`    | `/kv/get/app0/key0`    | データを取得 |
 | `DELETE` | `/kv/delete` | データを削除 |
 | `PUT`    | `/kv/set`    | データを更新 |
 | `GET`    | `/kv/list/app0`   | キーのリストを取得 |
@@ -98,36 +98,36 @@ APIの動作確認
 
 npx wrangler dev
 
-curl -X GET http://localhost:8787/kv/get/app1/message
+curl -X GET http://localhost:8787/kv/get/app1/key1
 
 curl -X POST http://localhost:8787/kv/set \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "message1", "value": "Hello from app1-1"}'
+  -d '{"app": "app1", "key": "key1", "value": "Hello from app1-1"}'
 
 curl -X POST http://localhost:8787/kv/set \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "message2", "value": "Hello from app1-2"}'
+  -d '{"app": "app1", "key": "key2", "value": "Hello from app1-2"}'
 
-curl -X GET http://localhost:8787/kv/get/app1/message1
-curl -X GET http://localhost:8787/kv/get/app1/message2
+curl -X GET http://localhost:8787/kv/get/app1/key1
+curl -X GET http://localhost:8787/kv/get/app1/key2
 
 curl -X POST http://localhost:8787/kv/set \
   -H "Content-Type: application/json" \
-  -d '{"app": "app2", "key": "message1", "value": "Hello from app2-1"}'
+  -d '{"app": "app2", "key": "key1", "value": "Hello from app2-1"}'
 
-curl -X GET http://localhost:8787/kv/get/app1/message2
+curl -X GET http://localhost:8787/kv/get/app1/key2
 
 curl -X GET http://localhost:8787/kv/list/app1
 
 curl -X PUT http://localhost:8787/kv/set \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "message1", "value": "Updated message from app1-1"}'
+  -d '{"app": "app1", "key": "key1", "value": "Updated message from app1-1"}'
 
-curl -X GET http://localhost:8787/kv/get/app1/message1
+curl -X GET http://localhost:8787/kv/get/app1/key1
 
-curl -X DELETE http://localhost:8787/kv/delete/app1/message2
+curl -X DELETE http://localhost:8787/kv/delete/app1/key2
 
-curl http://localhost:8787/kv/get/app1/message2
+curl http://localhost:8787/kv/get/app1/key1
 
 curl -X GET http://localhost:8787/kv/list/app1
 
@@ -173,8 +173,8 @@ async function saveData(app, key, value) {
     return response.json();
 }
 
-// 例: "app1" の "message" キーにデータを保存
-saveData("app1", "message", "Hello, Cloudflare!").then(console.log);
+// 例: "app1" の "key1" キーにデータを保存
+saveData("app1", "key1", "Hello, Cloudflare!").then(console.log);
 ```
 
 ✅ **期待されるレスポンス**
@@ -192,8 +192,8 @@ async function getData(app, key) {
     return response.text();
 }
 
-// 例: "app1" の "message" を取得
-getData("app1", "message").then(console.log).catch(console.error);
+// 例: "app1" の "key1" を取得
+getData("app1", "key1").then(console.log).catch(console.error);
 ```
 
 ✅ **期待されるレスポンス**
@@ -207,7 +207,7 @@ getData("app1", "message").then(console.log).catch(console.error);
 データ保存 (`/kv/set`) と同じ API を使うので、`saveData()` を呼び出せば OK。
 
 ```javascript
-saveData("app1", "message", "Updated message").then(console.log);
+saveData("app1", "key1", "Updated message").then(console.log);
 ```
 
 ✅ **期待されるレスポンス**
@@ -226,8 +226,8 @@ async function deleteData(app, key) {
     return response.json();
 }
 
-// 例: "app1" の "message" を削除
-deleteData("app1", "message").then(console.log);
+// 例: "app1" の "key1" を削除
+deleteData("app1", "key1").then(console.log);
 ```
 
 ✅ **期待されるレスポンス**
@@ -616,12 +616,14 @@ if (!authHeader || authHeader !== 'Bearer 1234567890abcdef')
 
 ---
 
+npx wrangler dev
+
 ### 1. **認証と認可**
 
 認証を通過するためには、`Authorization` ヘッダーに `Bearer YOUR_API_KEY` を追加します。
 
 ```bash
-curl -X GET "https://your-api-url/kv/list/someapp" \
+curl -X GET http://localhost:8787/kv/list/app1 \
 -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -632,13 +634,13 @@ curl -X GET "https://your-api-url/kv/list/someapp" \
 複数のデータを一度に保存するには、以下のように`curl`を使います。
 
 ```bash
-curl -X POST "https://your-api-url/kv/bulk-set" \
+curl -X POST http://localhost:8787/kv/bulk-set \
 -H "Content-Type: application/json" \
 -H "Authorization: Bearer YOUR_API_KEY" \
 -d '{
   "items": [
-    { "app": "someapp", "key": "key1", "value": "value1", "ttl": 3600 },
-    { "app": "someapp", "key": "key2", "value": "value2" }
+    { "app": "app1", "key": "key11", "value": "value11", "ttl": 3600 },
+    { "app": "app2", "key": "key21", "value": "value21" }
   ]
 }'
 ```
@@ -650,13 +652,13 @@ curl -X POST "https://your-api-url/kv/bulk-set" \
 `ttl` オプション付きでデータを保存します。
 
 ```bash
-curl -X POST "https://your-api-url/kv/set" \
+curl -X POST http://localhost:8787/kv/set \
 -H "Content-Type: application/json" \
 -H "Authorization: Bearer YOUR_API_KEY" \
 -d '{
-  "app": "someapp",
-  "key": "key1",
-  "value": "value1",
+  "app": "app1",
+  "key": "key13",
+  "value": "value13",
   "ttl": 3600
 }'
 ```
@@ -668,7 +670,7 @@ curl -X POST "https://your-api-url/kv/set" \
 指定されたアプリに関連するキーのリストを取得します。
 
 ```bash
-curl -X GET "https://your-api-url/kv/list/someapp" \
+curl -X GET http://localhost:8787/kv/list/app1 \
 -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -679,12 +681,12 @@ curl -X GET "https://your-api-url/kv/list/someapp" \
 既存のデータを更新します。指定したキーが存在しない場合は404エラーが返されます。
 
 ```bash
-curl -X PUT "https://your-api-url/kv/update" \
+curl -X PUT http://localhost:8787/kv/update \
 -H "Content-Type: application/json" \
 -H "Authorization: Bearer YOUR_API_KEY" \
 -d '{
-  "app": "someapp",
-  "key": "key1",
+  "app": "app1",
+  "key": "key11",
   "newValue": "updated_value"
 }'
 ```
@@ -696,7 +698,7 @@ curl -X PUT "https://your-api-url/kv/update" \
 現在のすべてのキーとその値をバックアップします。
 
 ```bash
-curl -X GET "https://your-api-url/kv/backup" \
+curl -X GET "http://localhost:8787/kv/backup" \
 -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -707,7 +709,7 @@ curl -X GET "https://your-api-url/kv/backup" \
 バックアップデータを復元します。バックアップデータはJSON形式で渡します。
 
 ```bash
-curl -X POST "https://your-api-url/kv/restore" \
+curl -X POST "http://localhost:8787/kv/restore" \
 -H "Content-Type: application/json" \
 -H "Authorization: Bearer YOUR_API_KEY" \
 -d '{
@@ -720,12 +722,12 @@ curl -X POST "https://your-api-url/kv/restore" \
 
 ---
 
-### 各機能の説明:
-
 - **`-X`**: 使用するHTTPメソッド（GET、POST、PUTなど）を指定します。
 - **`-H`**: HTTPヘッダーを指定します。`Authorization` ヘッダーで認証情報を渡します。
 - **`-d`**: リクエストボディとして送信するデータを指定します（POST、PUTリクエスト用）。
 
+
+wrangler deploy
 
 
 
