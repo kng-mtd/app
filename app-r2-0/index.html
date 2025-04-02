@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>R2 File Management</title>
+	</head>
+	<body>
+		<h1>R2 File Upload and Download</h1>
+
+		<h2>Upload a File</h2>
+		<form id="upload-form" enctype="multipart/form-data">
+			<input type="file" name="file" id="file-input" required />
+			<button type="submit">Upload</button>
+		</form>
+
+		<h2>File List</h2>
+		<ul id="file-list"></ul>
+
+		<h2>Download a File</h2>
+		<input type="text" id="download-file-name" placeholder="Enter file name to download" />
+		<button id="download-button">Download</button>
+
+		<script>
+			const url = 'https://r2-app0.muchagorou112.workers.dev';
+
+			// File upload handler
+			document.getElementById('upload-form').addEventListener('submit', async (event) => {
+				event.preventDefault();
+				const formData = new FormData();
+				const fileInput = document.getElementById('file-input');
+				formData.append('file', fileInput.files[0]);
+
+				const res = await fetch(url, {
+					method: 'POST',
+					body: formData,
+				});
+
+				if (res.ok) {
+					alert('File uploaded successfully!');
+					fetchFileList(); // Refresh the file list after upload
+				} else {
+					alert('Failed to upload file');
+				}
+			});
+
+			// Fetch and display the file list
+			async function fetchFileList() {
+				const res = await fetch(`${url}/list`);
+				if (res.ok) {
+					const fileList = await res.json();
+					const fileListElement = document.getElementById('file-list');
+					fileListElement.innerHTML = '';
+					fileList.forEach((fileName) => {
+						const li = document.createElement('li');
+						li.textContent = fileName;
+						fileListElement.appendChild(li);
+					});
+				}
+			}
+
+			// File download handler
+			document.getElementById('download-button').addEventListener('click', async () => {
+				const fileName = document.getElementById('download-file-name').value;
+				if (!fileName) {
+					alert('Please enter a file name.');
+					return;
+				}
+
+				const res = await fetch(`${url}/${fileName}`); // Fixed the template literal syntax
+				if (res.ok) {
+					const blob = await res.blob();
+					const link = document.createElement('a');
+					link.href = URL.createObjectURL(blob);
+					link.download = fileName;
+					link.click();
+				} else {
+					alert('File not found');
+				}
+			});
+
+			// Fetch the file list when the page loads
+			window.onload = fetchFileList;
+		</script>
+	</body>
+</html>

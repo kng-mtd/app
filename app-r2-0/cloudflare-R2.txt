@@ -1,0 +1,245 @@
+Dashboard > R2 object storage > create bucket
+
+
+Manage R2 API Tokens > Create API Token
+
+R2 bckt0
+
+
+cd ~
+(npm install -g wrangler)
+(npm update -g wrangler)
+wrangler --version
+wrangler login
+
+mkdir r2-app0
+wrangler init r2-app0
+
+cd r2-app0
+code .
+
+
+wrangler.jsonc
+binding is used in JS as alias of bucket name
+
+{
+  "compatibility_date": "2024-03-31",
+  "r2_buckets": [
+    {
+      "binding": "bckt0",
+      "bucket_name": "bckt0"
+    }
+  ],
+  "vars": {
+    "API_VERSION": "v1"
+  }
+}
+
+
+
+
+
+
+
+wrangler r2 object get bckt0/file0.xxx --file download0.xxx --remote
+
+wrangler r2 object put bckt0/file0.xxx --file upload0.xxx --remote
+
+wrangler r2 object delete bckt0/file0.xxx  --remote
+
+
+
+
+workers API
+index.js
+
+export default {
+	async fetch(req, env) {
+		const url = new URL(req.url);
+		const fileName = url.pathname.split('/')[1];
+
+		// CORS headers for cross-origin reqs
+		const headers = {
+			'Access-Control-Allow-Origin': '*', // Allow all origins (can be restricted to a specific domain)
+			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', // Allowed methods
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allowed headers
+		};
+
+		// Handling OPTIONS req (CORS preflight)
+		if (req.method === 'OPTIONS') {
+			return new Response(null, { headers });
+		}
+
+		// GET req (fetch file from R2)
+		if (req.method === 'GET' && fileName !== 'list') {
+			try {
+				if (!fileName) {
+					return new Response('File name required', { status: 400, headers });
+				}
+				const file = await env.bckt0.get(fileName);
+				if (!file) {
+					return new Response('File not found', { status: 404, headers });
+				}
+				return new Response(file.body, {
+					headers: {
+						'Content-Type': 'application/octet-stream',
+						'Content-Disposition': `attachment; filename="${fileName}"`,
+						...headers,
+					},
+				});
+			} catch (error) {
+				return new Response('Error fetching file', { status: 500, headers });
+			}
+		}
+
+		// POST req (upload file to R2)
+		if (req.method === 'POST') {
+			try {
+				const formData = await req.formData();
+				const file = formData.get('file');
+				if (!file) {
+					return new Response('No file uploaded', { status: 400, headers });
+				}
+
+				const fileBuffer = await file.arrayBuffer();
+				await env.bckt0.put(file.name, fileBuffer); // Save file to R2 bucket
+
+				return new Response('File uploaded successfully', { status: 200, headers });
+			} catch (error) {
+				return new Response('Error uploading file', { status: 500, headers });
+			}
+		}
+
+		// File list display (GET req to show list of files in the bucket)
+		if (req.method === 'GET' && fileName === 'list') {
+			try {
+				const objects = await env.bckt0.list();
+				const fileNames = objects.objects.map((object) => object.key);
+				return new Response(JSON.stringify(fileNames), {
+					headers: {
+						'Content-Type': 'application/json',
+						...headers,
+					},
+				});
+			} catch (error) {
+				return new Response('Error retrieving file list', { status: 500, headers });
+			}
+		}
+
+		return new Response('Invalid req method', { status: 405, headers });
+	},
+};
+
+
+npx wrangler dev
+
+curl -X POST http://localhost:8787 -F 'file=@penguins.csv'
+
+curl -X GET http://localhost:8787/penguins.csv --output penguins1.csv
+
+curl -X POST http://localhost:8787 -F 'file=@penguins1.csv'
+
+curl -X GET http://localhost:8787/list
+
+
+wrangler deploy
+
+curl -X POST https://r2-app0.muchagorou112.workers.dev -F 'file=@penguins.csv'
+
+curl -X GET https://r2-app0.muchagorou112.workers.dev/penguins.csv --output penguins1.csv
+
+curl -X POST http://localhost:8787 -F 'file=@penguins1.csv'
+
+curl -X GET https://r2-app0.muchagorou112.workers.dev/penguins.csv/list
+
+
+
+frontend
+index.html
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>R2 File Management</title>
+	</head>
+	<body>
+		<h1>R2 File Upload and Download</h1>
+
+		<h2>Upload a File</h2>
+		<form id="upload-form" enctype="multipart/form-data">
+			<input type="file" name="file" id="file-input" required />
+			<button type="submit">Upload</button>
+		</form>
+
+		<h2>File List</h2>
+		<ul id="file-list"></ul>
+
+		<h2>Download a File</h2>
+		<input type="text" id="download-file-name" placeholder="Enter file name to download" />
+		<button id="download-button">Download</button>
+
+		<script>
+			const url = 'https://r2-app0.muchagorou112.workers.dev';
+
+			// File upload handler
+			document.getElementById('upload-form').addEventListener('submit', async (event) => {
+				event.preventDefault();
+				const formData = new FormData();
+				const fileInput = document.getElementById('file-input');
+				formData.append('file', fileInput.files[0]);
+
+				const res = await fetch(url, {
+					method: 'POST',
+					body: formData,
+				});
+
+				if (res.ok) {
+					alert('File uploaded successfully!');
+					fetchFileList(); // Refresh the file list after upload
+				} else {
+					alert('Failed to upload file');
+				}
+			});
+
+			// Fetch and display the file list
+			async function fetchFileList() {
+				const res = await fetch(`${url}/list`);
+				if (res.ok) {
+					const fileList = await res.json();
+					const fileListElement = document.getElementById('file-list');
+					fileListElement.innerHTML = '';
+					fileList.forEach((fileName) => {
+						const li = document.createElement('li');
+						li.textContent = fileName;
+						fileListElement.appendChild(li);
+					});
+				}
+			}
+
+			// File download handler
+			document.getElementById('download-button').addEventListener('click', async () => {
+				const fileName = document.getElementById('download-file-name').value;
+				if (!fileName) {
+					alert('Please enter a file name.');
+					return;
+				}
+
+				const res = await fetch(`${url}/${fileName}`); // Fixed the template literal syntax
+				if (res.ok) {
+					const blob = await res.blob();
+					const link = document.createElement('a');
+					link.href = URL.createObjectURL(blob);
+					link.download = fileName;
+					link.click();
+				} else {
+					alert('File not found');
+				}
+			});
+
+			// Fetch the file list when the page loads
+			window.onload = fetchFileList;
+		</script>
+	</body>
+</html>
