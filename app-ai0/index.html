@@ -1,1 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Ask the Assistant</title>
+	</head>
+	<body>
+		<h1>Ask the Assistant</h1>
+		<form id="askForm">
+			<input type="text" id="userInput" placeholder="Enter your question here" required />
+			<button type="submit">Ask</button>
+		</form>
+		<div id="response"></div>
 
+		<script>
+			// Handle form submission
+			document.getElementById('askForm').addEventListener('submit', async function (event) {
+				event.preventDefault();
+
+				// Get the user's input
+				const userInput = document.getElementById('userInput').value;
+				if (!userInput.trim()) return;
+
+				// Show loading message while waiting for response
+				const responseElement = document.getElementById('response');
+				responseElement.innerHTML = 'Loading...';
+
+				try {
+					// Send the input to the Cloudflare Worker via a POST request
+					const response = await fetch('https://ai-app0.muchagorou112.workers.dev', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({ text: userInput }),
+					});
+
+					// Parse the response
+					const data = await response.json();
+
+					// Display the AI's response
+					if (response.ok) {
+						responseElement.innerHTML = `<strong>Assistant's Response:</strong><br>${data.response || 'No response from AI.'}`;
+					} else {
+						responseElement.innerHTML = `<strong>Error:</strong> ${data.message || 'Something went wrong'}`;
+					}
+				} catch (error) {
+					responseElement.innerHTML = `<strong>Error:</strong> ${error.message}`;
+				}
+			});
+		</script>
+	</body>
+</html>
