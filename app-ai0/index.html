@@ -23,7 +23,7 @@
 		const mm = String(today.getMonth() + 1).slice(-2);
 		const dd = String(today.getDate()).slice(-2);
 
-		document.getElementById('userInput').value = `Give me a joke related to today ${mm}-${dd}`;
+		document.getElementById('userInput').value = `Give me a joke related to today ${mm}/${dd}`;
 	});
 			
 			document.getElementById('askForm').addEventListener('submit', async function (event) {
