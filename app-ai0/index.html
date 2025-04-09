@@ -20,8 +20,8 @@
 	document.addEventListener('DOMContentLoaded', function () {
 		// Set today's date as default value
 		const today = new Date();
-		const mm = String(today.getMonth() + 1).slice(-2);
-		const dd = String(today.getDate()).slice(-2);
+		const mm = today.getMonth() + 1;
+		const dd = today.getDate();
 
 		document.getElementById('userInput').value = `Give me a story related to today ${mm}/${dd}`;
 	});
