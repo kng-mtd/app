@@ -10,13 +10,22 @@
 		<form id="askForm">
 			<input type="password" id="authToken" placeholder="Enter auth token" required />
 			<br />
-			<input type="text" id="userInput" value="Give me a joke" required />
+			<input type="text" id="userInput" required />
 			<br />
 			<button type="submit">Ask</button>
 		</form>
 		<div id="response"></div>
 
 		<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		// Set today's date as default value
+		const today = new Date();
+		const mm = String(today.getMonth() + 1).slice(-2);
+		const dd = String(today.getDate()).slice(-2);
+
+		document.getElementById('userInput').value = `Today is ${mm}-${dd}, give me a joke related to the date`;
+	});
+			
 			document.getElementById('askForm').addEventListener('submit', async function (event) {
 				event.preventDefault();
 
