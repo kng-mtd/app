@@ -1,0 +1,563 @@
+https://qiita.com/nouernet/items/d6ad4d5f4f08857644de
+
+sudo apt install -y nodejs npm
+
+sudo npm install n -g
+
+sudo n stable
+
+sudo apt purge -y nodejs npm
+sudo apt autoremove -y
+
+node -v
+npm -v
+
+mkdir 0pj
+cd 0pj
+
+npm init -y
+
+nano index.js
+
+	console.log('Hello, node.js');
+
+node index.js
+
+
+http server with nodejs default web server
+
+----
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  // Handle GET requests
+  if (req.method === 'GET') {
+    res.statusCode = 200;  // HTTP status code
+    res.setHeader('Content-Type', 'text/plain'); // response header
+    res.end('Hello, Node.js'); // response body
+  }
+
+  // Handle POST requests
+  else if (req.method === 'POST') {
+    let body = '';
+
+    // Collect POST data
+    req.on('data', chunk => {
+      body += chunk;
+    });
+
+    // Once all POST data is received
+    req.on('end', () => {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/plain');
+      res.end(`Received POST data: ${body}`);
+    });
+  }
+
+  // Handle other request methods
+  else {
+    res.statusCode = 405; // Method Not Allowed
+    res.setHeader('Content-Type', 'text/plain');
+    res.end('Method Not Allowed');
+  }
+});
+
+const PORT = 8787;
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+----
+
+get request
+curl http://localhost:8787/
+
+post request
+curl -X POST -d "contensts" http://localhost:8787/
+
+
+
+http server with express
+
+rm -rf node_modules package-lock.json
+npm install express@4 cors
+npm install
+
+{
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+  }
+}
+
+----
+const express = require('express');
+const app = express();
+
+// Middleware to parse JSON and URL-encoded data (for POST requests)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Handle GET requests
+app.get('/', (req, res) => {
+  res.status(200).send('Hello, Express GET request');
+});
+
+// Handle POST requests
+app.post('/', (req, res) => {
+  const data = req.body; // Access the data sent in the POST request
+  res.status(200).send(`Received POST data: ${JSON.stringify(data)}`);
+});
+
+// Handle unsupported methods
+app.all('*', (req, res) => {
+  res.status(405).send('Method Not Allowed');
+});
+
+const PORT = 8787;
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+----
+
+get request
+curl http://localhost:8787/
+
+post request
+curl -X POST -H "Content-Type: application/json" -d '{"key0":"val0"}' http://localhost:8787/
+
+
+correspond to cors
+express automatically handles OPTIONS and responds correctly for preflight requests, then it doesn't need to manually code OPTIONS handlers.
+
+npm install cors
+
+----
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+// Enable CORS for all routes
+app.use(cors());
+
+// Middleware to parse JSON and URL-encoded data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Handle GET requests
+app.get('/', (req, res) => {
+  res.status(200).send('Hello, Express GET request');
+});
+
+// Handle POST requests
+app.post('/', (req, res) => {
+  res.status(200).send(`Received POST data: ${JSON.stringify(req.body)}`);
+});
+
+// Handle unsupported methods
+app.all('*', (req, res) => {
+  res.status(405).send('Method Not Allowed');
+});
+
+const PORT = 8787;
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+----
+
+custom cors
+
+app.use('*', cors({
+  origin: 'https://example.com', // Only allow requests from this domain
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+}));
+
+
+
+http server with Hono
+
+npm install hono
+npm install @hono/node-server
+
+package.json
+	add "type": "module",
+	
+{
+  "name": "0pj",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "cors": "^2.8.5",
+    "hono": "^4.7.8"
+  }
+}
+
+----
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server'; // Node.js server for Hono
+
+const app = new Hono();
+
+// Handle GET requests
+app.get('/', (c) => {
+  return c.text('Hello, Hono GET request');
+});
+
+// Handle POST requests
+app.post('/', async (c) => {
+  const body = await c.req.json(); // Parse JSON body
+  return c.text(`Received POST data: ${JSON.stringify(body)}`);
+});
+
+// Handle unsupported methods
+app.all('*', (c) => {
+  return c.text('Method Not Allowed', 405);
+});
+
+const PORT = 8787;
+serve({
+  fetch: app.fetch,
+  port: PORT,
+}, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+----
+
+get request
+curl http://localhost:8787/
+
+post request
+curl -X POST -H "Content-Type: application/json" -d '{"key0":"val0"}' http://localhost:8787/
+
+
+
+correspond to cors
+Hono automatically handles OPTIONS and responds correctly for preflight requests, then it doesn't need to manually code OPTIONS handlers.
+
+----
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+import { cors } from 'hono/cors'; // Import CORS middleware
+
+const app = new Hono();
+
+// Enable CORS for all routes
+app.use('*', cors());
+
+// Handle GET requests
+app.get('/', (c) => {
+  return c.text('Hello, Hono GET request');
+});
+
+// Handle POST requests
+app.post('/', async (c) => {
+  const body = await c.req.json();
+  return c.text(`Received POST data: ${JSON.stringify(body)}`);
+});
+
+// Handle unsupported methods
+app.all('*', (c) => {
+  return c.text('Method Not Allowed', 405);
+});
+
+const PORT = 8787;
+serve({
+  fetch: app.fetch,
+  port: PORT,
+}, () => {
+  console.log(`Server running at http://localhost:${PORT}/`);
+});
+----
+
+custom cors
+
+// Enable CORS only for GitHub Pages domain
+app.use('*', cors({
+  origin: 'https://your-username.github.io',
+  allowMethods: ['GET', 'POST'],
+  allowHeaders: ['Content-Type'],
+}));
+
+
+// Enable CORS for GitHub Pages domain and local development
+app.use('*', cors({
+  origin: (origin) => {
+    const allowed = [
+      'http://localhost:8787',
+      'https://your-username.github.io'
+    ];
+    return allowed.includes(origin) ? origin : '';
+  },
+  allowMethods: ['GET', 'POST'],
+  allowHeaders: ['Content-Type'],
+}));
+
+
+----
+----
+
+
+Hono for cloudflare worker
+
+npm install -g wrangler
+
+mkdir 1pj
+wrangler init 1pj
+cd 1pj
+
+npm install hono
+
+src/index.js
+----
+import { Hono } from 'hono';
+import { cors } from 'hono/cors'; // Import CORS middleware
+
+const app = new Hono();
+
+// Enable CORS for all routes
+app.use('*', cors());
+
+// Handle GET request
+app.get('/', (c) => {
+	return c.text('Hello, Hono with CORS on Workers');
+});
+
+// Handle POST request
+app.post('/', async (c) => {
+	const data = await c.req.json();
+	return c.json({
+		comment: 'Received data',
+		data,
+	});
+});
+
+// Handle other methods
+app.all('*', (c) => {
+	return c.text('Method Not Allowed', 405);
+});
+
+// Export Worker fetch
+export default app;
+----
+
+wrangler dev (wrangler dev src/index0.js)
+	 > start developmnet server, x to stop server
+
+curl http://localhost:8787/
+
+curl -X POST http://localhost:8787/ \
+  -H "Content-Type: application/json" \
+  -d '{"key0":"val0"}'
+
+
+wrangler deploy
+
+curl https://1pj.muchagorou112.workers.dev
+
+curl -X POST https://1pj.muchagorou112.workers.dev \
+  -H "Content-Type: application/json" \
+  -d '{"key0":"val0"}'
+
+
+----
+----
+
+CRUD to KV
+
+use namespace store1
+(or on cloudfare dashboard KV)
+
+wrangler kv namespace create store1
+	> namespace id  
+
+for development (on wrangler dev)
+wrangler kv namespace create store1 --preview
+	> preview id
+
+
+
+wrangler.jsonc
+----
+{
+  // Project name
+  "name": "1pj",
+
+  // Workers platform compatibility date
+  "compatibility_date": "2025-04-01",
+
+  // KV namespace binding
+  "kv_namespaces": [
+    {
+      "binding": "store1", // Available in code as c.env.store0
+      "id": "<namespace id>",
+      "preview_id": "<dev namespace id>"
+    }
+  ]
+}
+----
+
+
+wrangler kv namespace list
+	> namespace id
+
+wrangler kv namespace delete --namespace-id=<namespace id>
+
+wrangler kv key list --namespace-id=<namespace id> --remote
+	> name
+
+wrangler kv key get --namespace-id=<namespace id> <key name> --remote
+
+wrangler kv key put --namespace-id=<namespace id> <key name> <value> --remote
+
+
+
+----
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+const app = new Hono();
+
+// Enable CORS for all routes
+app.use('*', cors());
+
+// Handle GET request to fetch a value by key
+app.get('/item/:key', async (c) => {
+  const key = c.req.param('key');
+  const value = await c.env.store1.get(key);
+  if (value === null) {
+    return c.text('Not Found', 404);
+  }
+  return c.text(value);
+});
+
+// Handle POST request to create a new item
+app.post('/item/:key', async (c) => {
+  const key = c.req.param('key');
+  const body = await c.req.text();
+  await c.env.store1.put(key, body);
+  return c.text('Created', 201);
+});
+
+// Handle PUT request to update an existing item
+app.put('/item/:key', async (c) => {
+  const key = c.req.param('key');
+  const body = await c.req.text();
+  await c.env.store1.put(key, body);
+  return c.text('Updated', 200);
+});
+
+// Handle DELETE request to delete an item
+app.delete('/item/:key', async (c) => {
+  const key = c.req.param('key');
+  await c.env.store1.delete(key);
+  return c.text('Deleted', 200);
+});
+
+export default app;
+----
+
+
+wrangler dev (wrangler dev src/index1.js)
+
+curl http://localhost:8787/item/foo
+curl -X POST http://localhost:8787/item/foo -d "Hello World"
+curl http://localhost:8787/item/foo
+curl -X POST http://localhost:8787/item/foo2 -d "Hello World2"
+curl http://localhost:8787/items
+curl -X PUT http://localhost:8787/item/foo2 -d "Updated World"
+curl http://localhost:8787/items
+curl -X DELETE http://localhost:8787/item/foo
+curl http://localhost:8787/items
+
+
+
+CRUD json to KV
+
+----
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+const app = new Hono();
+
+// Enable CORS for all routes
+app.use('*', cors());
+
+// Handle GET request to fetch a JSON value by key
+app.get('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const value = await c.env.store1.get(key);
+	if (value === null) {
+		return c.json({ message: 'Not Found' }, 404);
+	}
+	try {
+		const jsonValue = JSON.parse(value);
+		return c.json(jsonValue);
+	} catch (e) {
+		return c.json({ message: 'Invalid JSON stored' }, 500);
+	}
+});
+
+// Handle POST request to create a new JSON item
+app.post('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const body = await c.req.json();
+	await c.env.store1.put(key, JSON.stringify(body));
+	return c.json({ message: 'Created' }, 201);
+});
+
+// Handle PUT request to update an existing JSON item
+app.put('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const body = await c.req.json();
+	await c.env.store1.put(key, JSON.stringify(body));
+	return c.json({ message: 'Updated' }, 200);
+});
+
+// Handle DELETE request to delete an item
+app.delete('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	await c.env.store1.delete(key);
+	return c.json({ message: 'Deleted' }, 200);
+});
+
+export default app;
+----
+
+wrangler dev (wrangler dev src/index2.js)
+
+curl http://localhost:8787/item/fruits
+
+curl -X POST http://localhost:8787/item/fruits1 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Apple", "price": 100}'
+
+curl http://localhost:8787/item/fruits
+
+curl -X POST http://localhost:8787/item/fruits2 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Banana", "price": 150}'
+
+curl http://localhost:8787/items
+
+curl -X PUT http://localhost:8787/item/fruits1 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Apple", "price": 120}'
+
+curl http://localhost:8787/items
+
+curl -X DELETE http://localhost:8787/item/fruits2
+
+curl http://localhost:8787/items
+
+
+
