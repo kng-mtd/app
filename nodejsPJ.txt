@@ -423,6 +423,260 @@ wrangler kv key put --namespace-id=<namespace id> <key name> <value> --remote
 
 
 
+
+Cloudflare KV API
+### `await store0.get(key[, options])`
+
+```js
+const value = await store0.get("user:123");
+const valueJson = await store0.get("user:123", { type: "json" }); // 自動JSONパース
+```
+
+- `type`: `"text"`（デフォルト）、`"json"`、`"arrayBuffer"`、`"stream"`
+
+---
+
+### `await store0.put(key, value[, options])`
+
+```js
+await store0.put("user:123", JSON.stringify({ name: "Bob" }));
+
+// TTLをつける（60秒）
+await store0.put("temp-key", "value", { expirationTtl: 60 });
+
+// 絶対期限（Unix timestampで指定）
+await store0.put("expire-key", "value", { expiration: Math.floor(Date.now() / 1000) + 3600 });
+```
+
+---
+
+### `await store0.delete(key)`
+
+```js
+await store0.delete("user:123");
+```
+
+---
+
+### `await store0.list([options])`
+
+```js
+const list = await store0.list({ prefix: "user:" });
+for (const entry of list.keys) {
+  console.log(entry.name); // キー名
+}
+```
+
+- オプション:
+  - `prefix`: 文字列でフィルタ
+  - `limit`: 最大件数（デフォルト1000）
+  - `cursor`: 次ページ取得用
+
+---
+
+
+
+
+
+Hono の主な機能一覧
+
+1. **ルーティング機能**
+- `app.get(path, handler)`
+- `app.post(path, handler)`
+- `app.put(path, handler)`
+- `app.delete(path, handler)`
+- `app.route(basePath, subApp)` ← ルーティングのグループ化
+- `app.on(method, path, handler)` ← 任意メソッド対応
+
+```js
+app.get("/hello", c => c.text("Hello"));
+```
+
+---
+
+2. **パラメータ付きルーティング**
+```js
+app.get("/user/:id", c => {
+  const id = c.req.param("id");
+  return c.text(`User ID: ${id}`);
+});
+```
+
+---
+
+3. **リクエストパース**
+- `c.req.json()`（JSONボディ）
+- `c.req.text()`（テキストボディ）
+- `c.req.formData()`（multipart/form-data）
+- `c.req.query()`（クエリパラメータ）
+
+```js
+const data = await c.req.json();
+```
+
+---
+
+4. **レスポンスメソッド**
+- `c.text("Hello")`
+- `c.json({})`
+- `c.html("<p>Hi</p>")`
+- `c.redirect("/new")`
+- `c.body(buffer, status, headers)`
+
+---
+
+5. **ミドルウェア**
+```js
+app.use("*", async (c, next) => {
+  console.log("Request received");
+  await next();
+});
+```
+はい、Hono には **便利な組み込みミドルウェア** が多数用意されています。以下に代表的なものを一覧で紹介します。
+
+---
+
+## 🧩 組み込みミドルウェア一覧（Hono公式）
+
+| ミドルウェア名     | 概要                                                            |
+|---------------------|-----------------------------------------------------------------|
+| `cors()`            | CORS（クロスオリジン）対応                                      |
+| `logger()`          | リクエストログ出力                                             |
+| `basicAuth()`       | ベーシック認証                                                 |
+| `poweredBy()`       | `X-Powered-By` ヘッダーを付与                                   |
+| `secureHeaders()`   | セキュリティ関連ヘッダー追加（Helmet相当）                    |
+| `etag()`            | ETag ヘッダーでレスポンスのキャッシュ最適化                   |
+| `compress()`        | Gzip/Brotli 圧縮（Cloudflare Workersでは無効）                 |
+| `csrf()`            | CSRFトークンチェック                                           |
+| `cookie()`          | Cookie パーサー（読み書き可能）                                |
+| `rateLimit()`       | IPベースのレートリミッター                                     |
+| `validator()`       | リクエストバリデーション（zod や yup と組み合わせ）           |
+
+
+### 1. CORS（全許可）
+
+```js
+import { cors } from 'hono/cors';
+app.use('*', cors());
+```
+
+---
+
+### 2. ロガー
+
+```js
+import { logger } from 'hono/logger';
+app.use('*', logger());
+```
+
+---
+
+### 3. ベーシック認証
+
+```js
+import { basicAuth } from 'hono/basic-auth';
+
+app.use('/admin/*', basicAuth({
+  username: 'admin',
+  password: 'secret'
+}));
+```
+
+---
+
+### 4. セキュリティヘッダー
+
+```js
+import { secureHeaders } from 'hono/secure-headers';
+app.use('*', secureHeaders());
+```
+
+---
+
+### 5. Cookie の読み書き
+
+```js
+import { cookie } from 'hono/cookie';
+app.use('*', cookie());
+
+app.get('/cookie', c => {
+  const userId = c.req.cookie('user_id');
+  return c.text(`Cookie: ${userId}`);
+});
+```
+
+---
+
+### 6. レート制限（例: 1分に100回）
+
+```js
+import { rateLimit } from 'hono/rate-limit';
+
+app.use('/api/*', rateLimit({
+  windowMs: 60000,
+  limit: 100,
+  standardHeaders: true,
+}));
+```
+
+
+---
+
+6. **Context (`c`) オブジェクト**
+- `c.req`: リクエスト情報
+- `c.env`: `Bindings`（KV, D1 など）
+- `c.get()/set()`: 値の共有
+- `c.header()/status()/body()`: レスポンス制御
+
+---
+
+7. **Bindings（Cloudflare KV, D1 などとの統合）**　TypeScript
+```ts
+type Bindings = {
+  store0: KVNamespace;
+  DB: D1Database;
+};
+
+const app = new Hono<{ Bindings: Bindings }>();
+```
+
+---
+
+8. **Router 分割 / サブアプリ構成**
+```js
+const userRoute = new Hono();
+userRoute.get("/", ...);
+userRoute.get("/:id", ...);
+app.route("/users", userRoute);
+```
+
+---
+
+9. **Error Handling**
+```js
+app.onError((err, c) => {
+  return c.text("Custom Error: " + err.message, 500);
+});
+```
+
+---
+
+その他機能
+
+| 機能               | 内容                                    |
+|--------------------|-----------------------------------------|
+| `serve()`          | Cloudflare Workers や Bun に対応        |
+| `c.req.header()`   | ヘッダーの取得                          |
+| `c.req.valid()`    | バリデーション（zodなどと併用）         |
+| `c.req.cookie()`   | Cookie 操作（`cookie` middleware）       |
+| `app.fire()`       | Edge runtime 対応                        |
+
+---
+
+
+
+
+
 ----
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
