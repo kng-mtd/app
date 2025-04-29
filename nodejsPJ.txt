@@ -383,7 +383,7 @@ use kv namespace store1
 wrangler kv namespace create store1
 	> namespace id  
 
-kv for development (from wrangler dev)
+kv for development (use on wrangler dev)
 wrangler kv namespace create store1 --preview
 	> preview id
 
