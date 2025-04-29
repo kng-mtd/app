@@ -1,6 +1,5 @@
 Cloudflare KV を共通のデータストレージとして、複数のアプリケーションが利用できる **API（Key-Value Storage API）** を作る場合、以下の要件を満たすと便利です。
 
-### **要件**
 1. **統一されたエンドポイント**（アプリごとに異なるデータ型でも統一的に扱える）
 2. **アプリごとのデータ分離**（名前空間・プレフィックス管理）
 3. **JSON 形式のデータ保存・取得**
@@ -9,405 +8,251 @@ Cloudflare KV を共通のデータストレージとして、複数のアプリ
 
 ---
 
-## **1. Cloudflare Workers で API を構築**
-Cloudflare Workers を使って、Cloudflare KV (ex. store0) にアクセスする API を作成します。
+Cloudflare Workers API
 
-### **エンドポイント設計**
-| メソッド | エンドポイント | 内容 |
-|----------|--------------|------|
-| `POST`   | `/kv/set`    | データを保存 |
-| `GET`    | `/kv/get/app0/key0`    | データを取得 |
-| `DELETE` | `/kv/delete` | データを削除 |
-| `PUT`    | `/kv/set`    | データを更新 |
-| `GET`    | `/kv/list/app0`   | キーのリストを取得 |
+create KV namespace store0
+
+wrangler kv namespace create store0
+	> namespace id  
+
+kv for development (use on wrangler dev)
+wrangler kv namespace create store0 --preview
+	> preview id
+
+
+
+cloudflare worker API
+
+index.js
+---
+`cors()` はクロスオリジンアクセス（他ドメインからのAPI呼び出し）を許可。
+
+```js
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+
+const app = new Hono()
+
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type']
+}))
+```
+
+## POST `/kv/set`  
+キーにデータを保存します。
+
+```ts
+app.post('/kv/set', async (c) => {
+  const { app: appName, key, value } = await c.req.json()
+  if (!appName || !key || !value) {
+    return c.text('Missing app, key, or value', 400)
+  }
+  const env = c.env
+  await env.store0.put(`${appName}:${key}`, JSON.stringify(value))
+  return c.json({ success: true })
+})
+```
+
+### ポイント
+- `appName` を使ってキーを名前空間化（例: `todo:task1`）。
+- `value` はJSON文字列にして保存。
+- 値が `undefined`だと保存できないため、条件式は `value === undefined` などに改善可能。
 
 ---
 
+## GET `/kv/get/:app/:key`  
+保存されたデータを取得。
 
-index.js
+```js
+app.get('/kv/get/:app/:key', async (c) => {
+  const { app: appName, key } = c.req.param()
+  const env = c.env
+  const value = await env.store0.get(`${appName}:${key}`)
+  if (!value) {
+    return c.text('Not Found', 404)
+  }
+  return c.text(value)
+})
+```
 
-export default {
-	async fetch(req, env) {
-		const url = new URL(req.url);
-		const { method } = req;
+### ポイント
+- `appName:key` の形式で取得。
+- 値が見つからない場合は 404 エラー。
 
-		// CORS Middleware
-		const withCors = (res) => {
-			res.headers.set('Access-Control-Allow-Origin', '*');
-			res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-			res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-			return res;
-		};
+---
 
-		// Preflight req Handling (OPTIONS method)
-		if (method === 'OPTIONS') {
-			return withCors(new Response(null, { status: 204 }));
-		}
+## DELETE `/kv/delete/:app/:key`  
+キーを削除。
 
-		// Handle POST /kv/set
-		if (url.pathname === '/kv/set' && method === 'POST') {
-			try {
-				const { app, key, value } = await req.json();
-				if (!app || !key || !value) return withCors(new Response('Missing app, key, or value', { status: 400 }));
+```js
+app.delete('/kv/delete/:app/:key', async (c) => {
+  const { app: appName, key } = c.req.param()
+  const env = c.env
+  await env.store0.delete(`${appName}:${key}`)
+  return c.json({ success: true })
+})
+```
 
-				await env.store0.put(`${app}:${key}`, JSON.stringify(value)); // Namespaced Key
-				return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
-			} catch (error) {
-				return withCors(new Response(error.toString(), { status: 500 }));
-			}
-		}
+### ポイント
+- 指定されたキーを即座に削除。
 
-		// Handle GET /kv/get/:app/:key
-		if (url.pathname.startsWith('/kv/get/') && method === 'GET') {
-			const [, , , app, key] = url.pathname.split('/');
-			if (!app || !key) return withCors(new Response('Missing app or key', { status: 400 }));
+---
 
-			const value = await env.store0.get(`${app}:${key}`);
-			return value ? withCors(new Response(value)) : withCors(new Response('Not Found', { status: 404 }));
-		}
+## GET `/kv/list/:app`  
+アプリに属するすべてのキー名を一覧表示。
 
-		// Handle DELETE /kv/delete/:app/:key
-		if (url.pathname.startsWith('/kv/delete/') && method === 'DELETE') {
-			const [, , , app, key] = url.pathname.split('/');
-			if (!app || !key) return withCors(new Response('Missing app or key', { status: 400 }));
+```js
+app.get('/kv/list/:app', async (c) => {
+  const { app: appName } = c.req.param()
+  const env = c.env
+  const list = await env.store0.list({ prefix: `${appName}:` })
+  const keys = list.keys.map((k) => k.name.replace(`${appName}:`, ''))
+  return c.json(keys)
+})
+```
 
-			await env.store0.delete(`${app}:${key}`);
-			return withCors(new Response(JSON.stringify({ success: true }), { status: 200 }));
-		}
+### ポイント
+- `prefix` によってそのアプリのキーのみ取得。
+- `appName:` を除去してクリーンなキー一覧に変換。
 
-		// Handle GET /kv/list/:app
-		if (url.pathname.startsWith('/kv/list/') && method === 'GET') {
-			const [, , , app] = url.pathname.split('/');
-			if (!app) return withCors(new Response('Missing app', { status: 400 }));
+---
 
-			const list = await env.store0.list({ prefix: `${app}:` });
-			const keys = list.keys.map((k) => k.name.replace(`${app}:`, ''));
-			return withCors(new Response(JSON.stringify(keys), { status: 200 }));
-		}
+## 全アプリのデータを一覧取得する
 
-		// 404 Not Found
-		return withCors(new Response('Not Found', { status: 404 }));
-	},
-};
+```js
+// GET /kv/list-all
+app.get('/kv/list-all', async (c) => {
+  const env = c.env
+  // Fetch all keys from Cloudflare KV storage
+  const list = await env.store0.list()
+  
+  // Extract key names from the result and classify them by app name
+  const keys = list.keys.map((k) => {
+    const [appName, key] = k.name.split(':')  // Split the key into app name and actual key
+    return { appName, key }
+  })
+
+  // Group the keys by app name
+  const groupedByApp = keys.reduce((acc, { appName, key }) => {
+    if (!acc[appName]) acc[appName] = []  // Initialize an empty array if app name does not exist
+    acc[appName].push(key)  // Add the key under the corresponding app name
+    return acc
+  }, {})
+
+  // Return the grouped keys in JSON format
+  return c.json(groupedByApp)
+})
+```
+
+1. **`list()`メソッドの変更**:  
+   `list()` メソッドに `prefix` を指定しないことで、すべてのアプリケーションに関連するキーを取得します。
+   
+2. **キーの整形**:  
+   キー名（`appName:key`）を分割して、アプリ名（`appName`）とキー（`key`）に分けます。
+   
+3. **グループ化**:  
+   `reduce` メソッドを使用して、アプリごとにキーをまとめます。
+
+各アプリ名をキーに、そのアプリに関連するすべてのキーがリストされます。
 
 
 
+複数のキーと値を一括で登録
+
+```js
+// POST /kv/set-multiple
+app.post('/kv/set-multiple', async (c) => {
+  const { app: appName, items } = await c.req.json()
+  if (!appName || !Array.isArray(items)) {
+    return c.text('Missing app or items (must be array)', 400)
+  }
+
+  const env = c.env
+  const results = []
+
+  for (const item of items) {
+    const { key, value } = item
+    if (!key || typeof value === 'undefined') {
+      results.push({ key, success: false, error: 'Missing key or value' })
+      continue
+    }
+
+    try {
+      await env.store0.put(`${appName}:${key}`, JSON.stringify(value))
+      results.push({ key, success: true })
+    } catch (err) {
+      results.push({ key, success: false, error: err.message })
+    }
+  }
+
+  return c.json({ success: true, results })
+})
+
+export default app;
+```
 
 
 APIの動作確認
 
-npx wrangler dev
+wrangler dev
 
-curl -X GET http://localhost:8787/kv/get/app1/key1
 
-curl -X POST http://localhost:8787/kv/set \
+curl -X POST "http://localhost:8787/kv/set" \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "key1", "value": "Hello from app1-1"}'
+  -d '{"app": "app1", "key": "task1", "value": {"task": "Buy milk", "dueDate": "2025-05-01", "completed": false}}'
 
-curl -X POST http://localhost:8787/kv/set \
+curl -X GET "http://localhost:8787/kv/get/app1/task1"
+
+curl -X POST "http://localhost:8787/kv/set" \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "key2", "value": "Hello from app1-2"}'
+  -d '{"app": "app1", "key": "task2", "value": {"task": "Clean the house", "dueDate": "2025-05-10", "completed": false}}'
 
-curl -X GET http://localhost:8787/kv/get/app1/key1
-curl -X GET http://localhost:8787/kv/get/app1/key2
-
-curl -X POST http://localhost:8787/kv/set \
+curl -X POST "http://localhost:8787/kv/set" \
   -H "Content-Type: application/json" \
-  -d '{"app": "app2", "key": "key1", "value": "Hello from app2-1"}'
+  -d '{"app": "app1", "key": "task3", "value": {"task": "Complete homework", "dueDate": "2025-05-05", "priority": "High", "completed": false}}'
 
-curl -X GET http://localhost:8787/kv/get/app1/key2
+curl -X GET "http://localhost:8787/kv/list/app1"
 
-curl -X GET http://localhost:8787/kv/list/app1
-
-curl -X PUT http://localhost:8787/kv/set \
+curl -X POST "http://localhost:8787/kv/set" \
   -H "Content-Type: application/json" \
-  -d '{"app": "app1", "key": "key1", "value": "Updated message from app1-1"}'
+  -d '{"app": "app2", "key": "user1", "value": {"name": "John Doe", "email": "john.doe@example.com", "age": 30}}'
 
-curl -X GET http://localhost:8787/kv/get/app1/key1
+curl -X GET "http://localhost:8787/kv/get/app2/user1"
 
-curl -X DELETE http://localhost:8787/kv/delete/app1/key2
+curl -X POST "http://localhost:8787/kv/set" \
+  -H "Content-Type: application/json" \
+  -d '{"app": "app2", "key": "user2", "value": {"name": "Jane Smith", "email": "jane.smith@example.com", "age": 28}}'
 
-curl http://localhost:8787/kv/get/app1/key1
+curl -X POST "http://localhost:8787/kv/set" \
+  -H "Content-Type: application/json" \
+  -d '{"app": "app2", "key": "user3", "value": {"name": "Alice Johnson", "email": "alice.johnson@example.com", "age": 35, "phone": "+1-800-123-4567"}}'
 
-curl -X GET http://localhost:8787/kv/list/app1
+curl -X GET "http://localhost:8787/kv/list/app2"
 
+curl -X POST http://localhost:8787/kv/set-multiple \
+  -H "Content-Type: application/json" \
+  -d '{"app": "app2",
+    "items": [
+      {"key": "user4",
+       "value": { "name": "John Doe2", "email": "john.doe2@example.com", "age": 25 }},
+      {"key": "user5",
+        "value": { "name": "John Doe3", "email": "john.doe3@example.com", "age": 20 }}
+    ]
+  }'
 
-npx wranger deploy
-
-
----
-
-
-### **クライアントから Cloudflare Workers API を使う方法**  
-フロントエンドの JavaScript から API を使って Cloudflare KV にデータを保存・取得・更新・削除する方法を解説します。
-
----
-
-## **📌 1. API エンドポイントの仕様**
-まず、Cloudflare Workers API のエンドポイントを確認します。
-
-| **HTTP メソッド** | **エンドポイント**       | **説明** |
-|-----------------|--------------------|------------|
-| `POST`         | `/kv/set`           | データの保存・更新 |
-| `GET`          | `/kv/get/{app}/{key}` | データの取得 |
-| `DELETE`       | `/kv/delete/{app}/{key}` | データの削除 |
-| `GET`          | `/kv/list/{app}`    | アプリごとのキー一覧取得 |
-
-> **API のベース URL**
-> - **ローカル開発環境:** `http://localhost:8787`
-> - **デプロイ後:** `https://your-cloudflare-worker-url.com`
-
----
-
-## **📌 2. クライアント側の JavaScript コード**
-以下の JavaScript 関数を使って API を呼び出せます。
-
-### **🔹 データを保存**
-```javascript
-async function saveData(app, key, value) {
-    const response = await fetch("http://localhost:8787/kv/set", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app, key, value })
-    });
-    return response.json();
-}
-
-// 例: "app1" の "key1" キーにデータを保存
-saveData("app1", "key1", "Hello, Cloudflare!").then(console.log);
-```
-
-✅ **期待されるレスポンス**
-```json
-{"success": true}
-```
-
----
-
-### **🔹 データを取得**
-```javascript
-async function getData(app, key) {
-    const response = await fetch(`http://localhost:8787/kv/get/${app}/${key}`);
-    if (!response.ok) throw new Error("Data not found");
-    return response.text();
-}
-
-// 例: "app1" の "key1" を取得
-getData("app1", "key1").then(console.log).catch(console.error);
-```
-
-✅ **期待されるレスポンス**
-```json
-"Hello, Cloudflare!"
-```
-
----
-
-### **🔹 データを更新**
-データ保存 (`/kv/set`) と同じ API を使うので、`saveData()` を呼び出せば OK。
-
-```javascript
-saveData("app1", "key1", "Updated message").then(console.log);
-```
-
-✅ **期待されるレスポンス**
-```json
-{"success": true}
-```
-
----
-
-### **🔹 データを削除**
-```javascript
-async function deleteData(app, key) {
-    const response = await fetch(`http://localhost:8787/kv/delete/${app}/${key}`, {
-        method: "DELETE"
-    });
-    return response.json();
-}
-
-// 例: "app1" の "key1" を削除
-deleteData("app1", "key1").then(console.log);
-```
-
-✅ **期待されるレスポンス**
-```json
-{"success": true}
-```
-
----
-
-### **🔹 アプリごとのキー一覧を取得**
-```javascript
-async function listKeys(app) {
-    const response = await fetch(`http://localhost:8787/kv/list/${app}`);
-    return response.json();
-}
-
-// 例: "app1" のキー一覧を取得
-listKeys("app1").then(console.log);
-```
-
-✅ **期待されるレスポンス**
-```json
-["message", "anotherKey"]
-```
-
----
-
-## **📌 3. クライアントアプリの組み込み例**
-例えば、HTML のフォームと連携して API を使う例:
-
-```html
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudflare KV API Demo</title>
-</head>
-<body>
-    <h1>Cloudflare KV API Demo</h1>
-
-    <input type="text" id="key" placeholder="Key">
-    <input type="text" id="value" placeholder="Value">
-    <button onclick="save()">Save</button>
-    <button onclick="load()">Load</button>
-
-    <p id="result"></p>
-
-    <script>
-        const app = "app1"; // 固定のアプリ名
-
-        async function save() {
-            const key = document.getElementById("key").value;
-            const value = document.getElementById("value").value;
-            const res = await saveData(app, key, value);
-            document.getElementById("result").innerText = JSON.stringify(res);
-        }
-
-        async function load() {
-            const key = document.getElementById("key").value;
-            try {
-                const value = await getData(app, key);
-                document.getElementById("result").innerText = value;
-            } catch (e) {
-                document.getElementById("result").innerText = "Not Found";
-            }
-        }
-    </script>
-</body>
-</html>
-```
+curl -X GET "http://localhost:8787/kv/list-all"
 
 
-| **操作** | **関数** | **API** |
-|---------|---------|--------|
-| データ保存 | `saveData(app, key, value)` | `POST /kv/set` |
-| データ取得 | `getData(app, key)` | `GET /kv/get/{app}/{key}` |
-| データ更新 | `saveData(app, key, value)` | `POST /kv/set` |
-| データ削除 | `deleteData(app, key)` | `DELETE /kv/delete/{app}/{key}` |
-| キー一覧取得 | `listKeys(app)` | `GET /kv/list/{app}` |
+wranger deploy
+
 
 ---
 
 
 
 
-
-
-`pako` は zlib の圧縮・解凍を行う JavaScript ライブラリです。Cloudflare Workers でも `gzip`/`ungzip` を扱うのに便利です。  
-
-## **`pako` をインストール**
-もしローカル開発環境で使う場合は、以下のコマンドでインストールできます。
-
-```sh
-npm install pako
-```
-
-## **gzip 圧縮して Cloudflare KV に保存**
-Cloudflare KV は **最大25MBのデータ** を保存できるため、大きな JSON データなどを圧縮するとストレージと転送量を節約できます。
-
-```javascript
-import { gzip } from 'pako';
-
-const data = { type: "log", messages: ["ログ1", "ログ2", "ログ3"] };
-const compressed = gzip(JSON.stringify(data));
-
-// Cloudflare KV に保存
-await env.KV_NAMESPACE.put("logs:001", compressed, { expirationTtl: 86400 });
-```
-
-`expirationTtl: 86400` は **24時間後にデータを自動削除** するオプションです（不要なら省略）。
-
----
-
-## **Cloudflare KV から取り出して解凍**
-保存したデータを取り出し、解凍して元の JSON に戻します。
-
-```javascript
-import { ungzip } from 'pako';
-
-const compressedData = await env.KV_NAMESPACE.get("logs:001", { type: "arrayBuffer" });
-
-if (compressedData) {
-  const decompressed = JSON.parse(new TextDecoder().decode(ungzip(new Uint8Array(compressedData))));
-  console.log(decompressed);  // { type: "log", messages: ["ログ1", "ログ2", "ログ3"] }
-}
-```
-
----
-
-## **バイナリデータの扱いに注意**
-Cloudflare KV の `put` は **文字列（string）** で保存するのが基本ですが、`Uint8Array` や `ArrayBuffer` も保存可能です。その場合、`get` 時に `{ type: "arrayBuffer" }` を指定しないと、データが文字列として破損する可能性があります。
-
-### **バイナリを Base64 に変換して保存する方法**
-もし `arrayBuffer` を使いたくない場合は、Base64 変換する方法もあります。
-
-```javascript
-import { gzip } from 'pako';
-
-// Base64エンコード
-function encodeBase64(bytes) {
-  return btoa(String.fromCharCode(...bytes));
-}
-
-// Base64デコード
-function decodeBase64(str) {
-  return new Uint8Array([...atob(str)].map(c => c.charCodeAt(0)));
-}
-
-// データを圧縮して Base64 に変換
-const compressedBase64 = encodeBase64(gzip(JSON.stringify(data)));
-
-// KV に保存
-await env.KV_NAMESPACE.put("logs:001", compressedBase64);
-```
-
-### **取得時に解凍**
-```javascript
-import { ungzip } from 'pako';
-
-const compressedBase64 = await env.KV_NAMESPACE.get("logs:001");
-
-if (compressedBase64) {
-  const decompressed = JSON.parse(new TextDecoder().decode(ungzip(decodeBase64(compressedBase64))));
-  console.log(decompressed);
-}
-```
-
----
-
-## **どの方法を選ぶべきか？**
-| 方法 | 長所 | 短所 |
-|------|------|------|
-| **通常の JSON 文字列** | そのまま保存できる | 大きなデータはサイズ増加 |
-| **gzip 圧縮 + ArrayBuffer** | データサイズを大幅削減 | `arrayBuffer` 指定が必要 |
-| **gzip 圧縮 + Base64** | `arrayBuffer` を使わなくて済む | Base64変換で少しサイズ増加 |
-
-圧縮して保存するなら、基本は `gzip + ArrayBuffer` で OK です。Base64 は JSON のみを扱う場合に便利ですが、データサイズは少し増えます。
-
-Cloudflare KV に大量のデータを保存するなら、**gzip 圧縮を活用することでパフォーマンスとコストを改善** できます！ 🚀
 
 
 
@@ -616,7 +461,7 @@ if (!authHeader || authHeader !== 'Bearer 1234567890abcdef')
 
 ---
 
-npx wrangler dev
+wrangler dev
 
 ### 1. **認証と認可**
 
@@ -727,171 +572,8 @@ curl -X POST "http://localhost:8787/kv/restore" \
 - **`-d`**: リクエストボディとして送信するデータを指定します（POST、PUTリクエスト用）。
 
 
-wrangler deploy
 
 
 
 
-### 1. **HTML構造**
-
-まず、APIとやり取りするための基本的なHTML構造を作成します。ここでは、データの保存や取得、キーの一覧表示を行うためのフォームを作成しています。
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>API Frontend</title>
-</head>
-<body>
-  <h1>API Interaction</h1>
-
-  <h2>Create or Update Data</h2>
-  <form id="setDataForm">
-    <input type="text" id="setApp" placeholder="App Name" required>
-    <input type="text" id="setKey" placeholder="Key" required>
-    <textarea id="setValue" placeholder="Value" required></textarea>
-    <input type="number" id="setTTL" placeholder="TTL (seconds)">
-    <button type="submit">Save Data</button>
-  </form>
-
-  <h2>Retrieve Data</h2>
-  <form id="getDataForm">
-    <input type="text" id="getApp" placeholder="App Name" required>
-    <input type="text" id="getKey" placeholder="Key" required>
-    <button type="submit">Get Data</button>
-  </form>
-
-  <h2>List Keys</h2>
-  <form id="listDataForm">
-    <input type="text" id="listApp" placeholder="App Name" required>
-    <button type="submit">List Keys</button>
-  </form>
-
-  <h2>Output</h2>
-  <pre id="output"></pre>
-
-  <script src="app.js"></script>
-</body>
-</html>
-```
-
-### 2. **JavaScriptコード (app.js)**
-
-次に、APIと通信を行うためのJavaScriptコードを作成します。ここでは、フォームの送信時に`fetch`を使ってAPIにリクエストを送信し、そのレスポンスを画面に表示します。
-
-```javascript
-const apiUrl = 'https://your-api-url'; // Replace with your actual API URL
-const apiKey = 'YOUR_API_KEY'; // Replace with your actual API key
-
-// Function to display the API response
-const showOutput = (response) => {
-  document.getElementById('output').textContent = JSON.stringify(response, null, 2);
-};
-
-// Handle the "Set Data" form submission
-document.getElementById('setDataForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const app = document.getElementById('setApp').value;
-  const key = document.getElementById('setKey').value;
-  const value = document.getElementById('setValue').value;
-  const ttl = document.getElementById('setTTL').value || null;
-
-  try {
-    const response = await fetch(`${apiUrl}/kv/set`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({ app, key, value, ttl })
-    });
-    const data = await response.json();
-    showOutput(data);
-  } catch (error) {
-    showOutput({ error: error.message });
-  }
-});
-
-// Handle the "Get Data" form submission
-document.getElementById('getDataForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const app = document.getElementById('getApp').value;
-  const key = document.getElementById('getKey').value;
-
-  try {
-    const response = await fetch(`${apiUrl}/kv/get/${app}/${key}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
-
-    const data = await response.text();
-    showOutput(data);
-  } catch (error) {
-    showOutput({ error: error.message });
-  }
-});
-
-// Handle the "List Keys" form submission
-document.getElementById('listDataForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const app = document.getElementById('listApp').value;
-
-  try {
-    const response = await fetch(`${apiUrl}/kv/list/${app}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
-    const data = await response.json();
-    showOutput(data);
-  } catch (error) {
-    showOutput({ error: error.message });
-  }
-});
-```
-
-### 3. **各部分の説明**
-
-- **HTML部分**:
-  - `setDataForm`: データを保存するためのフォーム。アプリ名、キー、値、およびTTLを入力します。
-  - `getDataForm`: データを取得するためのフォーム。アプリ名とキーを入力します。
-  - `listDataForm`: アプリに関連するキーを一覧表示するフォーム。
-  - 結果は`<pre>`タグに表示され、JSON形式で出力されます。
-
-- **JavaScript部分**:
-  - **setData**: データを保存するためのフォームが送信されると、`/kv/set`エンドポイントに`POST`リクエストを送信します。
-  - **getData**: データを取得するためのフォームが送信されると、`/kv/get/:app/:key`エンドポイントに`GET`リクエストを送信します。
-  - **listKeys**: アプリ名に関連するキーを一覧表示するために、`/kv/list/:app`エンドポイントに`GET`リクエストを送信します。
-
-- **APIとの通信**:
-  - `YOUR_API_KEY`には、実際のAPIキーを指定してください。
-  - `https://your-api-url`には、APIのURLを指定してください。
-
-### 4. **実行方法**
-
-1. `index.html`と`app.js`ファイルを同じディレクトリに配置します。
-2. `index.html`をブラウザで開きます。
-3. 各フォームを使って、APIにリクエストを送信し、結果を確認します。
-
-### 例: リクエストとレスポンス
-
-1. **データ作成・更新**: 
-   - 入力: `app = "someapp"`, `key = "user1"`, `value = "John Doe"`, `ttl = 3600`
-   - レスポンス: `{ "success": true }`
-
-2. **データ取得**:
-   - 入力: `app = "someapp"`, `key = "user1"`
-   - レスポンス: `"John Doe"`
-
-3. **キー一覧表示**:
-   - 入力: `app = "someapp"`
-   - レスポンス: `["user1", "user2"]`
 

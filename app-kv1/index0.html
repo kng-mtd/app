@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>KV Store Manager</title>
+		<!-- Google Fonts -->
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<!-- CSS Reset -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<!-- Milligram CSS -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+
+		<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+		<style>
+			body.dark {
+				background: #000;
+			}
+			input {
+				width: 50% !important;
+				color: #888;
+			}
+			textarea {
+				width: 70% !important;
+				color: #888;
+			}
+			pre {
+				width: 70% !important;
+				background: #000;
+			}
+		</style>
+	</head>
+	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+		<h1>KV Store Manager <button class="button-small" @click="dark = !dark" x-text="dark ? '☀️' : '🌙'"></button></h1>
+		<div class="row">
+			<div class="column">
+				<section>
+					<h3>List All Apps <button onclick="listAll()">All Keys</button></h3>
+					<pre id="allApps"></pre>
+				</section>
+
+				<section>
+					<h3>List Keys in App</h3>
+					<input type="text" id="listApp" placeholder="App name (e.g. app1)" />
+					<button onclick="listKeys()">App Keys</button>
+					<pre id="keysDisplay"></pre>
+				</section>
+
+				<section>
+					<h3>Get Value</h3>
+					<input type="text" id="getApp" placeholder="App name" />
+					<input type="text" id="getKey" placeholder="Key" />
+					<button onclick="getValue()">Get</button>
+					<pre id="valueDisplay"></pre>
+				</section>
+			</div>
+
+			<div class="column">
+				<section>
+					<h3>Set Single Key</h3>
+					<input type="text" id="setApp" placeholder="App name" />
+					<input type="text" id="setKey" placeholder="Key" />
+					<textarea id="setValue" placeholder='Value  JSON {"name": "Alice"}'></textarea>
+					<button onclick="setValue()">Set</button>
+					<pre id="setResponse"></pre>
+				</section>
+
+				<section>
+					<h3>Set Multiple Keys</h3>
+					<input type="text" id="multiApp" placeholder="App name" />
+					<textarea id="multiData" placeholder='Key and Value  Array of JSON [{"key": "...", "value": {...}}, {},..]'></textarea>
+					<button onclick="setMultiple()">Set</button>
+					<pre id="multiResponse"></pre>
+				</section>
+
+				<section>
+					<h3>Delete Key</h3>
+					<input type="text" id="deleteApp" placeholder="App name" />
+					<input type="text" id="deleteKey" placeholder="Key" />
+					<button onclick="deleteKey()">Del</button>
+					<pre id="deleteResponse"></pre>
+				</section>
+			</div>
+		</div>
+
+		<script>
+			//const base = 'http://localhost:8787';
+			const base = 'https://kv-app1.muchagorou112.workers.dev'; // for production
+
+			const showJSON = (id, data) => {
+				document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+			};
+
+			async function listAll() {
+				const res = await fetch(`${base}/kv/list-all`);
+				const json = await res.json();
+				showJSON('allApps', json);
+			}
+
+			async function listKeys() {
+				const app = document.getElementById('listApp').value;
+				const res = await fetch(`${base}/kv/list/${app}`);
+				const json = await res.json();
+				showJSON('keysDisplay', json);
+			}
+
+			async function getValue() {
+				const app = document.getElementById('getApp').value;
+				const key = document.getElementById('getKey').value;
+				const res = await fetch(`${base}/kv/get/${app}/${key}`);
+				const text = await res.text();
+				try {
+					showJSON('valueDisplay', JSON.parse(text));
+				} catch {
+					document.getElementById('valueDisplay').textContent = text;
+				}
+			}
+
+			async function setValue() {
+				const app = document.getElementById('setApp').value;
+				const key = document.getElementById('setKey').value;
+				const valueText = document.getElementById('setValue').value;
+				try {
+					const value = JSON.parse(valueText);
+					const res = await fetch(`${base}/kv/set`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ app, key, value }),
+					});
+					const json = await res.json();
+					showJSON('setResponse', json);
+				} catch {
+					alert('Invalid JSON');
+				}
+			}
+
+			async function setMultiple() {
+				const app = document.getElementById('multiApp').value;
+				const itemsText = document.getElementById('multiData').value;
+				try {
+					const items = JSON.parse(itemsText);
+					if (!Array.isArray(items)) throw new Error('Input must be an array');
+
+					const res = await fetch(`${base}/kv/set-multiple`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ app, items }),
+					});
+					const json = await res.json();
+					showJSON('multiResponse', json);
+				} catch {
+					alert('Invalid JSON array');
+				}
+			}
+
+			async function deleteKey() {
+				const app = document.getElementById('deleteApp').value;
+				const key = document.getElementById('deleteKey').value;
+				const res = await fetch(`${base}/kv/delete/${app}/${key}`, { method: 'DELETE' });
+				const json = await res.json();
+				showJSON('deleteResponse', json);
+			}
+		</script>
+	</body>
+</html>

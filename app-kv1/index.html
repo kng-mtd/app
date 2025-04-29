@@ -1,57 +1,135 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Cloudflare KV API Demo</title>
+		<title>KV Store Manager</title>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+		<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+		<style>
+			body.dark {
+				background: #000;
+			}
+			input {
+				width: 50% !important;
+				color: #888;
+			}
+			textarea {
+				width: 70% !important;
+				color: #888;
+			}
+			pre {
+				width: 70% !important;
+				background: #000;
+			}
+		</style>
 	</head>
-	<body>
-		<h1>Cloudflare KV API Demo</h1>
+	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+		<h1>KV Store Manager <button @click="dark = !dark" x-text="dark ? '☀️' : '🌙'"></button></h1>
 
-		<input type="text" id="key" placeholder="Key" />
-		<input type="text" id="value" placeholder="Value" />
-		<button onclick="save()">Save</button>
-		<button onclick="load()">Load</button>
-		<button onclick="remove()">Delete</button>
-		<button onclick="listKeys()">List Keys</button>
+		<div class="row">
+			<div class="column">
+				<section x-data="{ result: '' }">
+					<h3>
+						List All Apps
+						<button @click="fetch(base + '/kv/list-all').then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))">
+							All Keys
+						</button>
+					</h3>
+					<pre x-text="result"></pre>
+				</section>
 
-		<p id="result"></p>
+				<section x-data="{ app: '', result: '' }">
+					<h3>List Keys in App</h3>
+					<input type="text" x-model="app" placeholder="App name (e.g. app1)" />
+					<button @click="fetch(base + '/kv/list/' + app).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))">
+						App Keys
+					</button>
+					<pre x-text="result"></pre>
+				</section>
+
+				<section x-data="{ app: '', key: '', result: '' }">
+					<h3>Get Value</h3>
+					<input type="text" x-model="app" placeholder="App name" />
+					<input type="text" x-model="key" placeholder="Key" />
+					<button
+						@click="fetch(`${base}/kv/get/${app}/${key}`).then(r => r.text()).then(t => {
+					try { result = JSON.stringify(JSON.parse(t), null, 2); }
+					catch { result = t; }
+				})"
+					>
+						Get
+					</button>
+					<pre x-text="result"></pre>
+				</section>
+			</div>
+
+			<div class="column">
+				<section x-data="{ app: '', key: '', value: '', result: '' }">
+					<h3>Set Single Key</h3>
+					<input type="text" x-model="app" placeholder="App name" />
+					<input type="text" x-model="key" placeholder="Key" />
+					<textarea x-model="value" placeholder='Value JSON {"name": "Alice"}'></textarea>
+					<button
+						@click="() => {
+						try {
+							const val = JSON.parse(value);
+							fetch(`${base}/kv/set`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ app, key, value: val })
+							}).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2));
+						} catch {
+							alert('Invalid JSON');
+						}
+					}()"
+					>
+						Set
+					</button>
+					<pre x-text="result"></pre>
+				</section>
+
+				<section x-data="{ app: '', data: '', result: '' }">
+					<h3>Set Multiple Keys</h3>
+					<input type="text" x-model="app" placeholder="App name" />
+					<textarea x-model="data" placeholder='Array of JSON [{"key": "...", "value": {...}}]'></textarea>
+					<button
+						@click="() => {
+						try {
+							const items = JSON.parse(data);
+						if (!Array.isArray(items)) throw new Error();
+						fetch(`${base}/kv/set-multiple`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ app, items })
+						}).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2));
+					} catch {
+						alert('Invalid JSON array');
+					}
+				}()"
+					>
+						Set
+					</button>
+					<pre x-text="result"></pre>
+				</section>
+
+				<section x-data="{ app: '', key: '', result: '' }">
+					<h3>Delete Key</h3>
+					<input type="text" x-model="app" placeholder="App name" />
+					<input type="text" x-model="key" placeholder="Key" />
+					<button
+						@click="fetch(`${base}/kv/delete/${app}/${key}`, { method: 'DELETE' }).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))"
+					>
+						Del
+					</button>
+					<pre x-text="result"></pre>
+				</section>
+			</div>
+		</div>
 
 		<script>
-			const BASE_URL = 'https://kv-app1.muchagorou112.workers.dev';
-			const app = 'app1'; // kv prefix
-
-			async function save() {
-				const key = document.getElementById('key').value;
-				const value = document.getElementById('value').value;
-				const res = await fetch(`${BASE_URL}/kv/set`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ app, key, value }),
-				}).then((res) => res.json());
-				document.getElementById('result').innerText = JSON.stringify(res);
-			}
-
-			async function load() {
-				const key = document.getElementById('key').value;
-				try {
-					const value = await fetch(`${BASE_URL}/kv/get/${app}/${key}`).then((res) => res.text());
-					document.getElementById('result').innerText = value;
-				} catch (e) {
-					document.getElementById('result').innerText = 'Not Found';
-				}
-			}
-
-			async function remove() {
-				const key = document.getElementById('key').value;
-				const res = await fetch(`${BASE_URL}/kv/delete/${app}/${key}`, { method: 'DELETE' }).then((res) => res.json());
-				document.getElementById('result').innerText = JSON.stringify(res);
-			}
-
-			async function listKeys() {
-				const res = await fetch(`${BASE_URL}/kv/list/${app}`).then((res) => res.json());
-				document.getElementById('result').innerText = JSON.stringify(res);
-			}
+			const base = 'https://kv-app1.muchagorou112.workers.dev';
 		</script>
 	</body>
 </html>
