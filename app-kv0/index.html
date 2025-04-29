@@ -1,116 +1,98 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="{ dark: false }" :class="{ 'dark': dark }">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>To-Do List</title>
-		<!-- Google Fonts -->
+		<title>Todo List</title>
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
-
-		<!-- CSS Reset -->
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
-		<!-- Milligram CSS -->
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+		<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 		<style>
-			body {
-				font-family: Arial, sans-serif;
-				max-width: 600px;
-				margin: 0 auto;
+			body.dark {
+				background: #000;
 			}
-			#todo-form {
-				display: flex;
-				margin-bottom: 20px;
-			}
-			ul {
-				list-style: none;
-				padding: 0;
-			}
-			li {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				border-bottom: 1px solid #ddd;
+			.button-small {
+				font-size: 1rem;
+				height: 2rem;
+				line-height: 2rem;
+				padding: 0 1rem;
 			}
 		</style>
 	</head>
-	<body>
-		<h2>To-Do List</h2>
+	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+		<h1>
+			Todo List
+			<button class="button-small" @click="dark = !dark" x-text="dark ? '☀️' : '🌙'"></button>
+		</h1>
 
-		<!-- Task input form -->
 		<form id="todo-form">
-			<input type="text" id="todo-title" name="title" placeholder="New task" required />
-			<button type="submit">Add</button>
+			<input type="text" id="new-todo" placeholder="Enter new todo" required style="color: #888" />
 		</form>
 
-		<!-- Task list -->
 		<ul id="todo-list"></ul>
 
-		<!-- Refresh button -->
-		<button id="load">Refresh</button>
-
 		<script>
-			const url = 'https://kv-app0.muchagorou112.workers.dev';
-			const todoForm = document.getElementById('todo-form');
-			const todoList = document.getElementById('todo-list');
+			//const API_URL = 'http://localhost:8787';
+			const API_URL = 'https://kv-app0.muchagorou112.workers.dev';
 
-			// Load tasks when the page loads
-			async function loadTodos() {
-				const response = await fetch(`${url}/todos`);
-				const todos = await response.json();
-				renderTodos(todos);
-			}
+			const fetchTodos = async () => {
+				const res = await fetch(`${API_URL}/items`);
+				const data = await res.json();
+				const list = document.getElementById('todo-list');
+				list.innerHTML = '';
 
-			// Render the task list
-			function renderTodos(todos) {
-				console.log('Rendering todos:', todos); // Debug log
-				todoList.innerHTML = ''; // Clear the list
-				todos.forEach((todo) => {
-					if (!todo) return;
-					const li = document.createElement('li');
-					li.dataset.id = todo.id;
-					li.innerHTML = `
-                    <input type="checkbox" ${todo.done ? 'checked' : ''} onclick="toggleTodoStatus('${todo.id}')" />
-                    <span>${todo.title}</span>
-                    <button onclick="deleteTodo('${todo.id}')">Delete</button>
-                	`;
-					todoList.appendChild(li);
-				});
-			}
+				Object.entries(data)
+					.sort(([, a], [, b]) => new Date(a.updatedAt) - new Date(b.updatedAt))
+					.forEach(([key, todo]) => {
+						list.innerHTML += `
+            <li>
+              <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!todo.done})">
+              <span>${todo.title}</span>
+              <small>(Updated: ${new Date(todo.updatedAt).toLocaleString()})</small>
+              <button class="button-small" onclick="deleteTodo('${key}')">Del</button>
+            </li>`;
+					});
+			};
 
-			// Add a new task
-			todoForm.addEventListener('submit', async (event) => {
-				event.preventDefault();
-				const title = document.getElementById('todo-title').value;
-				const response = await fetch(`${url}/todos`, {
+			const addTodo = async (title) => {
+				const key = crypto.randomUUID();
+				const now = new Date().toISOString();
+				await fetch(`${API_URL}/item/${key}`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ title }),
+					body: JSON.stringify({ title, done: false, updatedAt: now }),
 				});
-				todoForm.reset();
-				loadTodos(); // Reload task list
+				//fetchTodos();
+			};
+
+			const toggleDone = async (key, done) => {
+				const todo = await (await fetch(`${API_URL}/item/${key}`)).json();
+				todo.done = done;
+				todo.updatedAt = new Date().toISOString();
+				await fetch(`${API_URL}/item/${key}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(todo),
+				});
+				fetchTodos();
+			};
+
+			const deleteTodo = async (key) => {
+				await fetch(`${API_URL}/item/${key}`, { method: 'DELETE' });
+				fetchTodos();
+			};
+
+			document.getElementById('todo-form').addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const input = document.getElementById('new-todo');
+				if (input.value.trim()) {
+					await addTodo(input.value.trim());
+					input.value = '';
+				}
 			});
 
-			// Toggle task completion status
-			async function toggleTodoStatus(id) {
-				const response = await fetch(`${url}/todos/${id}`, {
-					method: 'PUT',
-				});
-				loadTodos(); // Reload task list
-			}
-
-			// Delete a task
-			async function deleteTodo(id) {
-				const response = await fetch(`${url}/todos/${id}`, {
-					method: 'DELETE',
-				});
-				loadTodos(); // Reload task list
-			}
-
-			// Refresh button event listener
-			document.getElementById('load').addEventListener('click', loadTodos);
-
-			// Load tasks on page load
-			loadTodos();
+			fetchTodos();
+			setInterval(fetchTodos, 5000);
 		</script>
 	</body>
 </html>
