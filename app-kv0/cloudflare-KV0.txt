@@ -1,85 +1,8 @@
-Cloudflare KV（Key-Value Storage）の主要な **プロパティとメソッド** を整理しました。  
-
----
-
-## **📌 KVの主要メソッド**
-Cloudflare Workers の `env.MY_KV` に対して呼び出せるメソッドは以下の通りです。
-
-### **1️⃣ データを保存（put）**
-```javascript
-await env.MY_KV.put("key", "value");
-```
-✅ **キー (`"key"`) に `"value"` を保存**  
-✅ **すでにキーが存在する場合は上書き**  
-
-#### **オプション付きの保存**
-```javascript
-await env.MY_KV.put("session:12345", "user_data", {
-  expiration: 1710000000, // Unixタイムスタンプ（秒単位）
-  expirationTtl: 3600,    // 1時間（TTL）
-});
-```
-✅ **`expiration`** → 指定した Unix タイム（秒単位）にデータが削除される  
-✅ **`expirationTtl`** → 〇〇秒後にデータが削除される  
-
----
-
-### **2️⃣ データを取得（get）**
-```javascript
-const value = await env.MY_KV.get("key");
-console.log(value);
-```
-✅ **キー `"key"` に保存されたデータを取得**  
-✅ **データが存在しない場合は `null` を返す**  
-
-#### **JSONデータの取得**
-```javascript
-const value = await env.MY_KV.get("user:123", { type: "json" });
-console.log(value.name); // JSONとして扱える
-```
-✅ `{ type: "json" }` を指定すると `JSON.parse()` しなくてもOK  
-
-#### **バイナリデータの取得**
-```javascript
-const binaryData = await env.MY_KV.get("image:123", { type: "arrayBuffer" });
-const uint8Array = new Uint8Array(binaryData);
-```
-✅ `type: "arrayBuffer"` を指定すると **バイナリデータとして取得** できる  
-
----
-
-### **3️⃣ データを削除（delete）**
-```javascript
-await env.MY_KV.delete("key");
-```
-✅ `"key"` に保存されたデータを削除  
-
----
-
-### **4️⃣ キーの一覧を取得（list）**
-```javascript
-const keys = await env.MY_KV.list();
-console.log(keys.keys);
-```
-✅ **KVに保存されているキーの一覧を取得**  
-✅ `keys` にキーの配列が含まれる  
-
-#### **特定のプレフィックス（接頭辞）を指定**
-```javascript
-const keys = await env.MY_KV.list({ prefix: "session:" });
-console.log(keys.keys);
-```
-✅ `"session:"` で始まるキーだけを取得  
-
----
-
-
-
-Cloudflare KV を使った To-Do List アプリを作る場合、以下のような構成が考えられます。
+Cloudflare KV を使った To-Do List アプリ
 
 ### **技術スタック**
 - **データストア**: Cloudflare KV（キー・バリューストア）
-- **フロントエンド**: htmx + HTML（シンプルな構成）
+- **フロントエンド**: alpine.js+HTML（シンプルな構成）
 - **バックエンド**: Cloudflare Workers（API サーバー）
 - **デプロイ**: GitHub Pages（フロントエンド）、Cloudflare Workers（API）
 
@@ -96,467 +19,152 @@ Cloudflare KV を使った To-Do List アプリを作る場合、以下のよう
 
 
 
-cd ~
-(npm install -g wrangler)
-(npm update -g wrangler)
-wrangler --version
-wrangler login
 
-mkdir kv-app0
-wrangler init kv-app0
+Cloudflare KV（Key-Value Storage）の主要な **プロパティとメソッド** 
 
-cd kv-app0
-code .
+## ** KVの主要メソッド**
+Cloudflare Workers の `env.MY_KV` に対して呼び出せるメソッドは以下の通りです。
+
+### **データを保存（put）**
+```javascript
+await env.MY_KV.put("key", "value");
+```
+**キー (`"key"`) に `"value"` を保存**  
+**すでにキーが存在する場合は上書き**  
+
+#### **オプション付きの保存**
+```javascript
+await env.MY_KV.put("session:12345", "user_data", {
+  expiration: 1710000000, // Unixタイムスタンプ（秒単位）
+  expirationTtl: 3600,    // 1時間（TTL）
+});
+```
+**`expiration`** → 指定した Unix タイム（秒単位）にデータが削除される  
+**`expirationTtl`** → 〇〇秒後にデータが削除される  
+
+---
+
+### **データを取得（get）**
+```javascript
+const value = await env.MY_KV.get("key");
+console.log(value);
+```
+**キー `"key"` に保存されたデータを取得**  
+**データが存在しない場合は `null` を返す**  
+
+#### **JSONデータの取得**
+```javascript
+const value = await env.MY_KV.get("user:123", { type: "json" });
+console.log(value.name); // JSONとして扱える
+```
+`{ type: "json" }` を指定すると `JSON.parse()` しなくてもOK  
+
+#### **バイナリデータの取得**
+```javascript
+const binaryData = await env.MY_KV.get("image:123", { type: "arrayBuffer" });
+const uint8Array = new Uint8Array(binaryData);
+```
+`type: "arrayBuffer"` を指定すると **バイナリデータとして取得** できる  
+
+---
+
+### **データを削除（delete）**
+```javascript
+await env.MY_KV.delete("key");
+```
+`"key"` に保存されたデータを削除  
+
+---
+
+### **キーの一覧を取得（list）**
+```javascript
+const keys = await env.MY_KV.list();
+console.log(keys.keys);
+```
+**KVに保存されているキーの一覧を取得**  
+`keys` にキーの配列が含まれる  
+
+#### **特定のプレフィックス（接頭辞）を指定**
+```javascript
+const keys = await env.MY_KV.list({ prefix: "session:" });
+console.log(keys.keys);
+```
+`"session:"` で始まるキーだけを取得  
+
+---
 
 
-
-Cloudflare Dashboard → KV
-新しいネームスペースを作成（例: `todo`）
-kv id発行 ---  
-
-`wrangler.jsonc` に KV の設定を追加:
-
-{
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "kv-app0",
-	"main": "src/index.js",
-	"compatibility_date": "2025-03-13",
-	"observability": {
-		"enabled": true
-	},
-	"kv_namespaces": [
-		{
-			"binding": "todo",
-			"id": "---"
-		}
-	]
-}
-
-
-wrangler kv namespace list
-
-
-
-
-### **Cloudflare Workers のコード**
+｀
+cloudflare worker
 
 index.js
 
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-    if (url.pathname === "/todos") {
-      if (req.method === "GET") return getTodos(env);
-      if (req.method === "POST") return addTodo(req, env);
-    }
-    if (url.pathname.startsWith("/todos/")) {
-      const id = url.pathname.split("/").pop();
-      if (req.method === "DELETE") return deleteTodo(id, env);
-      if (req.method === "PUT") return toggleTodo(id, req, env);
-    }
-    return new Response("Not Found", { status: 404 });
-  },
-};
-
-// 📌 すべてのタスクを取得 (GET /todos)
-async function getTodos(env) {
-  const keys = await env.todo.list();
-  const todos = await Promise.all(keys.keys.map(k => env.todo.get(k.name, "json")));
-  return new Response(JSON.stringify(todos), { headers: { "Content-Type": "application/json" } });
-}
-
-// 📌 新しいタスクを追加 (POST /todos)
-async function addTodo(req, env) {
-  const { title } = await req.json();
-  if (!title) return new Response("Title is required", { status: 400 });
-
-  const id = crypto.randomUUID();
-  const todo = { id, title, done: false, createdAt: new Date().toISOString() };
-  await env.todo.put(id, JSON.stringify(todo));
-
-  return new Response(JSON.stringify(todo), { headers: { "Content-Type": "application/json" } });
-}
-
-// 📌 タスクを削除 (DELETE /todos/{id})
-async function deleteTodo(id, env) {
-  const existing = await env.todo.get(id);
-  if (!existing) return new Response("Not Found", { status: 404 });
-
-  await env.todo.delete(id);
-  return new Response("Deleted", { status: 200 });
-}
-
-// 📌 タスクの完了/未完了を切り替え (PUT /todos/{id})
-async function toggleTodo(id, req, env) {
-  const existing = await env.todo.get(id, "json");
-  if (!existing) return new Response("Not Found", { status: 404 });
-
-  const updatedTodo = { ...existing, done: !existing.done };
-  await env.todo.put(id, JSON.stringify(updatedTodo));
-
-  return new Response(JSON.stringify(updatedTodo), { headers: { "Content-Type": "application/json" } });
-}
-
-
-このコードは、Cloudflare KV を利用した **シンプルな To-Do リスト API** を提供します。  
-エンドポイントごとに **GET（取得）・POST（追加）・DELETE（削除）・PUT（更新）** を実装しています。
-
----
-
-# **📌 コードの概要**
-### **1. ルートの処理**
-```javascript
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-
-    if (url.pathname === "/todos") {
-      if (req.method === "GET") return getTodos(env);
-      if (req.method === "POST") return addTodo(req, env);
-    }
-
-    if (url.pathname.startsWith("/todos/")) {
-      const id = url.pathname.split("/").pop();
-      if (req.method === "DELETE") return deleteTodo(id, env);
-      if (req.method === "PUT") return toggleTodo(id, req, env);
-    }
-
-    return new Response("Not Found", { status: 404 });
-  },
-};
-```
-🔹 **`fetch` メソッド** は、リクエストの URL とメソッドを判定して適切な関数を呼び出します。  
-🔹 `env.todo` は Cloudflare KV の名前空間です。
-
-| **HTTP メソッド** | **パス**          | **処理** |
-|------------------|------------------|-------------------------|
-| `GET`           | `/todos`          | すべてのタスクを取得 |
-| `POST`          | `/todos`          | 新しいタスクを追加 |
-| `DELETE`        | `/todos/{id}`     | タスクを削除 |
-| `PUT`           | `/todos/{id}`     | タスクの完了状態を切り替え |
-
----
-
-# **📌 各エンドポイントの処理**
-## **2. すべてのタスクを取得 (`GET /todos`)**
-```javascript
-async function getTodos(env) {
-  const keys = await env.todo.list();
-  const todos = await Promise.all(keys.keys.map(k => env.todo.get(k.name, "json")));
-  return new Response(JSON.stringify(todos), { headers: { "Content-Type": "application/json" } });
-}
-```
-🔹 **`env.todo.list()`** で KV に保存されているすべてのキー（ID）を取得  
-🔹 **`env.todo.get(k.name, "json")`** で ID に紐づくタスクを取得  
-🔹 **`Promise.all()`** で並列処理し、すべてのタスクを JSON として返す
-
-📌 **レスポンスの例**
-```json
-[
-  { "id": "123", "title": "買い物に行く", "done": false },
-  { "id": "456", "title": "勉強する", "done": true }
-]
-```
-
----
-
-## **3. 新しいタスクを追加 (`POST /todos`)**
-```javascript
-async function addTodo(req, env) {
-  const { title } = await req.json();
-  if (!title) return new Response("Title is required", { status: 400 });
-
-  const id = crypto.randomUUID();
-  const todo = { id, title, done: false, createdAt: new Date().toISOString() };
-  await env.todo.put(id, JSON.stringify(todo));
-
-  return new Response(JSON.stringify(todo), { headers: { "Content-Type": "application/json" } });
-}
-```
-🔹 `title` をリクエストボディから取得（必須チェックあり）  
-🔹 **UUID（`crypto.randomUUID()`）で一意の ID を生成**  
-🔹 **作成日時 (`createdAt`) を保存**  
-🔹 KV に **`id` をキーとして JSON データを保存**  
-
-📌 **リクエスト**
-```json
-{ "title": "読書する" }
-```
-📌 **レスポンス**
-```json
-{
-  "id": "789",
-  "title": "読書する",
-  "done": false,
-  "createdAt": "2025-03-18T12:00:00.000Z"
-}
-```
-
----
-
-## **4. タスクを削除 (`DELETE /todos/{id}`)**
-```javascript
-async function deleteTodo(id, env) {
-  const existing = await env.todo.get(id);
-  if (!existing) return new Response("Not Found", { status: 404 });
-
-  await env.todo.delete(id);
-  return new Response("Deleted", { status: 200 });
-}
-```
-🔹 **`env.todo.get(id)` でタスクが存在するかチェック**  
-🔹 存在しない場合は **404 Not Found** を返す  
-🔹 **`env.todo.delete(id)` で削除**  
-
-📌 **リクエスト**
-```http
-DELETE /todos/789
-```
-📌 **レスポンス**
-```
-Deleted
-```
-
----
-
-## **5. タスクの完了/未完了を切り替え (`PUT /todos/{id}`)**
-```javascript
-async function toggleTodo(id, req, env) {
-  const existing = await env.todo.get(id, "json");
-  if (!existing) return new Response("Not Found", { status: 404 });
-
-  const updatedTodo = { ...existing, done: !existing.done };
-  await env.todo.put(id, JSON.stringify(updatedTodo));
-
-  return new Response(JSON.stringify(updatedTodo), { headers: { "Content-Type": "application/json" } });
-}
-```
-🔹 **タスクが存在するかチェック**  
-🔹 `done` を **`true ⇄ false` にトグル（切り替え）**  
-🔹 更新したデータを KV に保存し、レスポンスとして返す  
-
-📌 **リクエスト**
-```http
-PUT /todos/789
-```
-📌 **変更前**
-```json
-{ "id": "789", "title": "読書する", "done": false }
-```
-📌 **変更後**
-```json
-{ "id": "789", "title": "読書する", "done": true }
-```
-
----
-
-
-
-API のテスト
-
-## **1. サーバーの起動**
-まず、Cloudflare Workers の開発サーバーを起動します。
-
-```sh
-npx wrangler dev
-```
-
-これで、`http://localhost:8787` で API が実行されます。
-
----
-
-## **2. API の動作確認**
-
-open new terminal
-
-### **すべてのタスクを取得**
-```sh
-curl -X GET http://localhost:8787/todos
-```
-**期待されるレスポンス**
-```json
-[]
-```
-
----
-
-### **新しいタスクを追加**
-```sh
-curl -X POST http://localhost:8787/todos \
-     -H "Content-Type: application/json" \
-     -d '{"title": "Buy groceries"}'
-```
-**期待されるレスポンス**
-```json
-{
-  "id": "1234-5678-9012",
-  "title": "Buy groceries",
-  "done": false,
-  "createdAt": "2025-03-18T12:34:56.789Z"
-}
-```
-**レスポンスの `id` は UUID で異なる**
-
----
-
-### **タスクを削除**
-ID を確認し、削除を実行します。
-
-```sh
-curl -X DELETE http://localhost:8787/todos/1234-5678-9012
-```
-**期待されるレスポンス**
-```
-Deleted
-```
-
----
-
-### **タスクの完了/未完了を切り替え**
-```sh
-curl -X PUT http://localhost:8787/todos/1234-5678-9012
-```
-**期待されるレスポンス**
-```json
-{
-  "id": "1234-5678-9012",
-  "title": "Buy groceries",
-  "done": true,
-  "createdAt": "2025-03-18T12:34:56.789Z"
-}
-```
-
----
-
-### **エラーハンドリングの確認**
-#### **タイトルが空のタスクを追加**
-```sh
-curl -X POST http://localhost:8787/todos \
-     -H "Content-Type: application/json" \
-     -d '{}'
-```
-**期待されるレスポンス**
-```
-Title is required
-```
-**ステータスコード:** `400`
-
-#### **存在しないタスクを削除**
-```sh
-curl -X DELETE http://localhost:8787/todos/nonexistent-id
-```
-**期待されるレスポンス**
-```
-Not Found
-```
-**ステータスコード:** `404`
-
----
-
-
-
-cloudflare walkersへデプロイ
-
-wrangler deploy
-
-デプロイ後の **本番 URL** (`https://your-worker-url`) を使用します。
-
-```sh
-curl -X GET https://your-worker-url/todos
-```
-
----
-
-
-
-CORS (Cross-Origin Resource Sharing) のエラーは、サーバー側で適切な `Access-Control-Allow-Origin` ヘッダーを設定することで解決できます。
-
----
-
-## **🔧 解決策**
-サーバー側 (`index.js`) に CORS ヘッダーを追加しましょう。
-
-### **1. 共通の CORS ヘッダー関数を作成**
-```javascript
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*", // すべてのオリジンからのリクエストを許可
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", // 許可する HTTP メソッド
-    "Access-Control-Allow-Headers": "Content-Type", // 許可するヘッダー
-  };
-}
-```
-
----
-
-### **2. `fetch` 内で CORS に対応**
-```javascript
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-
-    // CORS プリフライトリクエスト (OPTIONS) に対応
-    if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders() });
-    }
-
-    if (url.pathname === "/todos") {
-      if (req.method === "GET") return getTodos(env);
-      if (req.method === "POST") return addTodo(req, env);
-    }
-
-    if (url.pathname.startsWith("/todos/")) {
-      const id = url.pathname.split("/").pop();
-      if (req.method === "DELETE") return deleteTodo(id, env);
-      if (req.method === "PUT") return toggleTodo(id, req, env);
-    }
-
-    return new Response("Not Found", { status: 404, headers: corsHeaders() });
-  },
-};
-```
-
----
-
-### **3. API のレスポンスに CORS ヘッダーを追加**
-各 API 関数の `Response` に `headers: corsHeaders()` を追加します。
-
-```javascript
-async function getTodos(env) {
-  const keys = await env.todo.list();
-  const todos = await Promise.all(keys.keys.map(k => env.todo.get(k.name, "json")));
-  return new Response(JSON.stringify(todos), { headers: { ...corsHeaders(), "Content-Type": "application/json" } });
-}
-
-async function addTodo(req, env) {
-  const { title } = await req.json();
-  if (!title) return new Response("Title is required", { status: 400, headers: corsHeaders() });
-
-  const id = crypto.randomUUID();
-  const todo = { id, title, done: false, createdAt: new Date().toISOString() };
-  await env.todo.put(id, JSON.stringify(todo));
-
-  return new Response(JSON.stringify(todo), { headers: { ...corsHeaders(), "Content-Type": "application/json" } });
-}
-
-async function deleteTodo(id, env) {
-  const existing = await env.todo.get(id);
-  if (!existing) return new Response("Not Found", { status: 404, headers: corsHeaders() });
-
-  await env.todo.delete(id);
-  return new Response("Deleted", { status: 200, headers: corsHeaders() });
-}
-
-async function toggleTodo(id, req, env) {
-  const existing = await env.todo.get(id, "json");
-  if (!existing) return new Response("Not Found", { status: 404, headers: corsHeaders() });
-
-  const updatedTodo = { ...existing, done: !existing.done };
-  await env.todo.put(id, JSON.stringify(updatedTodo));
-
-  return new Response(JSON.stringify(updatedTodo), { headers: { ...corsHeaders(), "Content-Type": "application/json" } });
-}
-```
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+const app = new Hono();
+
+// Enable CORS for all routes
+app.use('*', cors());
+
+// Handle GET request to fetch a JSON value by key
+app.get('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const value = await c.env.store1.get(key);
+	if (value === null) {
+		return c.json({ message: 'Not Found' }, 404);
+	}
+	try {
+		const jsonValue = JSON.parse(value);
+		return c.json(jsonValue);
+	} catch (e) {
+		return c.json({ message: 'Invalid JSON stored' }, 500);
+	}
+});
+
+// Handle POST request to create a new JSON item
+app.post('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const body = await c.req.json();
+	await c.env.store1.put(key, JSON.stringify(body));
+	return c.json({ message: 'Created' }, 201);
+});
+
+// Handle PUT request to update an existing JSON item
+app.put('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	const body = await c.req.json();
+	await c.env.store1.put(key, JSON.stringify(body));
+	return c.json({ message: 'Updated' }, 200);
+});
+
+// Handle DELETE request to delete an item
+app.delete('/item/:key', async (c) => {
+	const key = c.req.param('key');
+	await c.env.store1.delete(key);
+	return c.json({ message: 'Deleted' }, 200);
+});
+
+// Handle GET request to fetch all JSON key-value pairs(max 1000 items)
+app.get('/items', async (c) => {
+	const list = await c.env.store1.list();
+	const result = {};
+
+	for (const key of list.keys) {
+		const value = await c.env.store1.get(key.name);
+		if (value !== null) {
+			try {
+				result[key.name] = JSON.parse(value);
+			} catch (e) {
+				result[key.name] = { message: 'Invalid JSON stored' };
+			}
+		}
+	}
+
+	return c.json(result);
+});
+
+export default app;
 
 ---
 
@@ -567,127 +175,109 @@ async function toggleTodo(id, req, env) {
 index.html
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="{ dark: false }" :class="{ 'dark': dark }">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>To-Do List</title>
-		<!-- Google Fonts -->
+		<title>Todo List</title>
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
-
-		<!-- CSS Reset -->
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
-		<!-- Milligram CSS -->
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+		<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 		<style>
-			body {
-				font-family: Arial, sans-serif;
-				max-width: 600px;
-				margin: 0 auto;
+			body.dark {
+				background: #000;
 			}
-			#todo-form {
-				display: flex;
-				margin-bottom: 20px;
-			}
-			ul {
-				list-style: none;
-				padding: 0;
-			}
-			li {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				border-bottom: 1px solid #ddd;
+			.button-small {
+				font-size: 1rem;
+				height: 2rem;
+				line-height: 2rem;
+				padding: 0 1rem;
 			}
 		</style>
 	</head>
-	<body>
-		<h2>To-Do List</h2>
+	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+		<h1>
+			Todo List
+			<button class="button-small" @click="dark = !dark" x-text="dark ? '☀️' : '🌙'"></button>
+		</h1>
 
-		<!-- Task input form -->
 		<form id="todo-form">
-			<input type="text" id="todo-title" name="title" placeholder="New task" required />
-			<button type="submit">Add</button>
+			<input type="text" id="new-todo" placeholder="Enter new todo" required style="color: #888" />
 		</form>
 
-		<!-- Task list -->
 		<ul id="todo-list"></ul>
 
-		<!-- Refresh button -->
-		<button id="load">Refresh</button>
-
 		<script>
-			const url = 'https://kv-app0.muchagorou112.workers.dev';
-			const todoForm = document.getElementById('todo-form');
-			const todoList = document.getElementById('todo-list');
+			//const API_URL = 'http://localhost:8787';
+			const API_URL = 'https://kv-app0.muchagorou112.workers.dev';
 
-			// Load tasks when the page loads
-			async function loadTodos() {
-				const response = await fetch(`${url}/todos`);
-				const todos = await response.json();
-				renderTodos(todos);
-			}
+			const fetchTodos = async () => {
+				const res = await fetch(`${API_URL}/items`);
+				const data = await res.json();
+				const list = document.getElementById('todo-list');
+				list.innerHTML = '';
 
-			// Render the task list
-			function renderTodos(todos) {
-				console.log('Rendering todos:', todos); // Debug log
-				todoList.innerHTML = ''; // Clear the list
-				todos.forEach((todo) => {
-					if (!todo) return;
-					const li = document.createElement('li');
-					li.dataset.id = todo.id;
-					li.innerHTML = `
-                    <input type="checkbox" ${todo.done ? 'checked' : ''} onclick="toggleTodoStatus('${todo.id}')" />
-                    <span>${todo.title}</span>
-                    <button onclick="deleteTodo('${todo.id}')">Delete</button>
-                	`;
-					todoList.appendChild(li);
-				});
-			}
+				Object.entries(data)
+					.sort(([, a], [, b]) => new Date(a.updatedAt) - new Date(b.updatedAt))
+					.forEach(([key, todo]) => {
+						list.innerHTML += `
+            <li>
+              <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!todo.done})">
+              <span>${todo.title}</span>
+              <small>(Updated: ${new Date(todo.updatedAt).toLocaleString()})</small>
+              <button class="button-small" onclick="deleteTodo('${key}')">Del</button>
+            </li>`;
+					});
+			};
 
-			// Add a new task
-			todoForm.addEventListener('submit', async (event) => {
-				event.preventDefault();
-				const title = document.getElementById('todo-title').value;
-				const response = await fetch(`${url}/todos`, {
+			const addTodo = async (title) => {
+				const key = crypto.randomUUID();
+				const now = new Date().toISOString();
+				await fetch(`${API_URL}/item/${key}`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ title }),
+					body: JSON.stringify({ title, done: false, updatedAt: now }),
 				});
-				todoForm.reset();
-				loadTodos(); // Reload task list
+				//fetchTodos();
+			};
+
+			const toggleDone = async (key, done) => {
+				const todo = await (await fetch(`${API_URL}/item/${key}`)).json();
+				todo.done = done;
+				todo.updatedAt = new Date().toISOString();
+				await fetch(`${API_URL}/item/${key}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(todo),
+				});
+				fetchTodos();
+			};
+
+			const deleteTodo = async (key) => {
+				await fetch(`${API_URL}/item/${key}`, { method: 'DELETE' });
+				fetchTodos();
+			};
+
+			document.getElementById('todo-form').addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const input = document.getElementById('new-todo');
+				if (input.value.trim()) {
+					await addTodo(input.value.trim());
+					input.value = '';
+				}
 			});
 
-			// Toggle task completion status
-			async function toggleTodoStatus(id) {
-				const response = await fetch(`${url}/todos/${id}`, {
-					method: 'PUT',
-				});
-				loadTodos(); // Reload task list
-			}
-
-			// Delete a task
-			async function deleteTodo(id) {
-				const response = await fetch(`${url}/todos/${id}`, {
-					method: 'DELETE',
-				});
-				loadTodos(); // Reload task list
-			}
-
-			// Refresh button event listener
-			document.getElementById('load').addEventListener('click', loadTodos);
-
-			// Load tasks on page load
-			loadTodos();
+			fetchTodos();
+			setInterval(fetchTodos, 5000);
 		</script>
 	</body>
 </html>
 
 
-
-
-
 GitHub Pages に HTML をアップロード
+
+アクセス
+https://kng-mtd.github.io/app/app-kv0/index.html
 
 
 
