@@ -33,7 +33,7 @@
 			}
 		</style>
 	</head>
-	<body class="container" x-data="getData()" :class="{ dark: darkMode }">
+	<body class="container" x-data="getData()" :class="{ dark: dark}">
 		<!-- User Login -->
 		<div x-show="!loggedIn">
 			<h3>Enter your username</h3>
@@ -48,8 +48,10 @@
 			<!-- Controls -->
 			<div>
 				<p>Logged in as: <strong x-text="userName"></strong></p>
-				<button @click="darkMode = !darkMode">Dark/Light</button>
-				<button @click="sortCards()">Sort ↑↓</button>
+				<a href="#" @click.prevent="dark = !dark">
+					<span style="font-size: 5rem" x-text="dark ? '◑' : '◐'"></span>
+				</a>
+				<button @click="sortCards()">Sort</button>
 				<button @click="removeCard()">Remove Last</button>
 				<form @submit.prevent="addCard">
 					<input type="text" placeholder="Title" x-model="newTitle" style="width: 200px" required />
@@ -83,7 +85,7 @@
 				let ascending = true;
 
 				return {
-					darkMode: false,
+					dark: false,
 					loggedIn: false,
 					userName: '',
 					inputUser: '',
