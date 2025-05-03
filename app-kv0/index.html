@@ -131,8 +131,11 @@
 				}
 			});
 
-			// Initial load only
-			document.addEventListener('DOMContentLoaded', fetchTodos);
+			// Initial load and auto-refresh every 5 seconds
+			document.addEventListener('DOMContentLoaded', () => {
+				fetchTodos();
+				setInterval(fetchTodos, 5000);
+			});
 		</script>
 	</body>
 </html>

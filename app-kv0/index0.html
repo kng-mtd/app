@@ -91,12 +91,11 @@
 				}
 			});
 
-			const fetchTodosLoop = async () => {
-				await fetchTodos();
-				setTimeout(fetchTodosLoop, 5000);
-			};
-
-			fetchTodosLoop();
+			// Initial load and auto-refresh every 5 seconds
+			document.addEventListener('DOMContentLoaded', () => {
+				fetchTodos();
+				setInterval(fetchTodos, 5000);
+			});
 		</script>
 	</body>
 </html>
