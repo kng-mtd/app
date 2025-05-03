@@ -20,10 +20,10 @@
 		</style>
 	</head>
 	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
-		<h1>
+		<h2>
 			Todo List
-			<button class="button-small" @click="dark = !dark" x-text="dark ? '☀️' : '🌙'"></button>
-		</h1>
+			<a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
+		</h2>
 
 		<form id="todo-form">
 			<input type="text" id="new-todo" placeholder="Enter new todo" required style="color: #888" />
