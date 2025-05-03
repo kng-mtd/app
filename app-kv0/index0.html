@@ -10,7 +10,6 @@
 		<style>
 			body.dark {
 				background: #000;
-				color: #fff;
 			}
 			.button-small {
 				font-size: 1rem;
@@ -33,6 +32,7 @@
 		<ul id="todo-list"></ul>
 
 		<script>
+			//const API_URL = 'http://localhost:8787';
 			const API_URL = 'https://kv-app0.muchagorou112.workers.dev';
 
 			const fetchTodos = async () => {
@@ -44,65 +44,25 @@
 				Object.entries(data)
 					.sort(([, a], [, b]) => new Date(a.updatedAt) - new Date(b.updatedAt))
 					.forEach(([key, todo]) => {
-						const li = document.createElement('li');
-						li.innerHTML = `
+						list.innerHTML += `
+            <li>
               <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!todo.done})">
               <span>${todo.title}</span>
               <small>(Updated: ${new Date(todo.updatedAt).toLocaleString()})</small>
               <button class="button-small" onclick="deleteTodo('${key}')">Del</button>
-            `;
-						list.appendChild(li);
+            </li>`;
 					});
 			};
 
 			const addTodo = async (title) => {
 				const key = crypto.randomUUID();
 				const now = new Date().toISOString();
-				const todo = { title, done: false, updatedAt: now };
-
-				// Show temporary "Saving..." entry
-				const list = document.getElementById('todo-list');
-				const tempId = `temp-${key}`;
-				const li = document.createElement('li');
-				li.id = tempId;
-				li.innerHTML = `
-          <input type="checkbox" disabled>
-          <span>${todo.title}</span>
-          <small style="color: orange">Saving to KV...</small>
-        `;
-				list.appendChild(li);
-
-				// Save to KV
 				await fetch(`${API_URL}/item/${key}`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(todo),
+					body: JSON.stringify({ title, done: false, updatedAt: now }),
 				});
-
-				// Poll KV to confirm it's saved
-				const checkKV = async (retry = 0) => {
-					const res = await fetch(`${API_URL}/item/${key}`);
-					if (res.status === 200) {
-						const saved = await res.json();
-						const finalLi = document.createElement('li');
-						finalLi.innerHTML = `
-              <input type="checkbox" ${saved.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!saved.done})">
-              <span>${saved.title}</span>
-              <small>(Updated: ${new Date(saved.updatedAt).toLocaleString()})</small>
-              <button class="button-small" onclick="deleteTodo('${key}')">Del</button>
-            `;
-						document.getElementById(tempId)?.replaceWith(finalLi);
-					} else if (retry < 10) {
-						setTimeout(() => checkKV(retry + 1), 1000);
-					} else {
-						const failMsg = document.getElementById(tempId)?.querySelector('small');
-						if (failMsg) {
-							failMsg.textContent = 'Failed to save to KV';
-							failMsg.style.color = 'red';
-						}
-					}
-				};
-				checkKV();
+				//fetchTodos();
 			};
 
 			const toggleDone = async (key, done) => {
@@ -131,8 +91,12 @@
 				}
 			});
 
-			// Initial load only
-			document.addEventListener('DOMContentLoaded', fetchTodos);
+			const fetchTodosLoop = async () => {
+				await fetchTodos();
+				setTimeout(fetchTodosLoop, 5000);
+			};
+
+			fetchTodosLoop();
 		</script>
 	</body>
 </html>
