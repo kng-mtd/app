@@ -19,7 +19,7 @@
 			}
 		</style>
 	</head>
-	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+	<body class="container" x-data="{ dark: true }" :class="{ 'dark': dark }">
 		<h2>
 			Todo List
 			<a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
