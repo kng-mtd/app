@@ -26,110 +26,128 @@
 		</style>
 	</head>
 	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
-		<h1>KV Store Manager <a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a></h1>
+		<h1>
+			KV Store Manager
+			<a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
+		</h1>
 
 		<div class="row">
 			<div class="column">
-				<section x-data="{ result: '' }">
+				<section x-data x-init>
 					<h3>
 						List All Apps
-						<button @click="fetch(base + '/kv/list-all').then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))">
-							All Keys
-						</button>
+						<button @click="getAllKeys($refs.output)">All Keys</button>
 					</h3>
-					<pre x-text="result"></pre>
+					<pre x-ref="output"></pre>
 				</section>
 
-				<section x-data="{ app: '', result: '' }">
+				<section x-data="{ app: '' }">
 					<h3>List Keys in App</h3>
 					<input type="text" x-model="app" placeholder="App name (e.g. app1)" />
-					<button @click="fetch(base + '/kv/list/' + app).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))">
-						App Keys
-					</button>
-					<pre x-text="result"></pre>
+					<button @click="listAppKeys(app, $refs.output)">App Keys</button>
+					<pre x-ref="output"></pre>
 				</section>
 
-				<section x-data="{ app: '', key: '', result: '' }">
+				<section x-data="{ app: '', key: '' }">
 					<h3>Get Value</h3>
 					<input type="text" x-model="app" placeholder="App name" />
 					<input type="text" x-model="key" placeholder="Key" />
-					<button
-						@click="fetch(`${base}/kv/get/${app}/${key}`).then(r => r.text()).then(t => {
-					try { result = JSON.stringify(JSON.parse(t), null, 2); }
-					catch { result = t; }
-				})"
-					>
-						Get
-					</button>
-					<pre x-text="result"></pre>
+					<button @click="getValue(app, key, $refs.output)">Get</button>
+					<pre x-ref="output"></pre>
 				</section>
 			</div>
 
 			<div class="column">
-				<section x-data="{ app: '', key: '', value: '', result: '' }">
+				<section x-data="{ app: '', key: '', value: '' }">
 					<h3>Set Single Key</h3>
 					<input type="text" x-model="app" placeholder="App name" />
 					<input type="text" x-model="key" placeholder="Key" />
 					<textarea x-model="value" placeholder='Value JSON {"name": "Alice"}'></textarea>
-					<button
-						@click="() => {
-						try {
-							const val = JSON.parse(value);
-							fetch(`${base}/kv/set`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ app, key, value: val })
-							}).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2));
-						} catch {
-							alert('Invalid JSON');
-						}
-					}()"
-					>
-						Set
-					</button>
-					<pre x-text="result"></pre>
+					<button @click="setSingleKey(app, key, value, $refs.output)">Set</button>
+					<pre x-ref="output"></pre>
 				</section>
 
-				<section x-data="{ app: '', data: '', result: '' }">
+				<section x-data="{ app: '', data: '' }">
 					<h3>Set Multiple Keys</h3>
 					<input type="text" x-model="app" placeholder="App name" />
 					<textarea x-model="data" placeholder='Array of JSON [{"key": "...", "value": {...}}]'></textarea>
-					<button
-						@click="() => {
-						try {
-							const items = JSON.parse(data);
-						if (!Array.isArray(items)) throw new Error();
-						fetch(`${base}/kv/set-multiple`, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ app, items })
-						}).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2));
-					} catch {
-						alert('Invalid JSON array');
-					}
-				}()"
-					>
-						Set
-					</button>
-					<pre x-text="result"></pre>
+					<button @click="setMultipleKeys(app, data, $refs.output)">Set</button>
+					<pre x-ref="output"></pre>
 				</section>
 
-				<section x-data="{ app: '', key: '', result: '' }">
+				<section x-data="{ app: '', key: '' }">
 					<h3>Delete Key</h3>
 					<input type="text" x-model="app" placeholder="App name" />
 					<input type="text" x-model="key" placeholder="Key" />
-					<button
-						@click="fetch(`${base}/kv/delete/${app}/${key}`, { method: 'DELETE' }).then(r => r.json()).then(j => result = JSON.stringify(j, null, 2))"
-					>
-						Del
-					</button>
-					<pre x-text="result"></pre>
+					<button @click="deleteKey(app, key, $refs.output)">Del</button>
+					<pre x-ref="output"></pre>
 				</section>
 			</div>
 		</div>
 
 		<script>
 			const base = 'https://kv-app1.muchagorou112.workers.dev';
+
+			window.getAllKeys = async (output) => {
+				const res = await fetch(`${base}/kv/list-all`);
+				const json = await res.json();
+				output.textContent = JSON.stringify(json, null, 2);
+			};
+
+			window.listAppKeys = async (app, output) => {
+				const res = await fetch(`${base}/kv/list/${app}`);
+				const json = await res.json();
+				output.textContent = JSON.stringify(json, null, 2);
+			};
+
+			window.getValue = async (app, key, output) => {
+				const res = await fetch(`${base}/kv/get/${app}/${key}`);
+				const text = await res.text();
+				try {
+					output.textContent = JSON.stringify(JSON.parse(text), null, 2);
+				} catch {
+					output.textContent = text;
+				}
+			};
+
+			window.setSingleKey = async (app, key, valueRaw, output) => {
+				try {
+					const value = JSON.parse(valueRaw);
+					const res = await fetch(`${base}/kv/set`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ app, key, value }),
+					});
+					const json = await res.json();
+					output.textContent = JSON.stringify(json, null, 2);
+				} catch {
+					alert('Invalid JSON');
+				}
+			};
+
+			window.setMultipleKeys = async (app, dataRaw, output) => {
+				try {
+					const items = JSON.parse(dataRaw);
+					if (!Array.isArray(items)) throw new Error();
+					const res = await fetch(`${base}/kv/set-multiple`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ app, items }),
+					});
+					const json = await res.json();
+					output.textContent = JSON.stringify(json, null, 2);
+				} catch {
+					alert('Invalid JSON array');
+				}
+			};
+
+			window.deleteKey = async (app, key, output) => {
+				const res = await fetch(`${base}/kv/delete/${app}/${key}`, {
+					method: 'DELETE',
+				});
+				const json = await res.json();
+				output.textContent = JSON.stringify(json, null, 2);
+			};
 		</script>
 	</body>
 </html>
