@@ -25,7 +25,7 @@
 			}
 		</style>
 	</head>
-	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
+	<body class="container" x-data="{ dark: true }" :class="{ 'dark': dark }">
 		<h1>
 			KV Store Manager
 			<a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
