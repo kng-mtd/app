@@ -45,12 +45,12 @@
 					.sort(([, a], [, b]) => new Date(a.updatedAt) - new Date(b.updatedAt))
 					.forEach(([key, todo]) => {
 						list.innerHTML += `
-            <li>
-              <input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!todo.done})">
-              <span>${todo.title}</span>
-              <small>(Updated: ${new Date(todo.updatedAt).toLocaleString()})</small>
-              <button class="button-small" onclick="deleteTodo('${key}')">Del</button>
-            </li>`;
+							<li>
+								<input type="checkbox" ${todo.done ? 'checked' : ''} onchange="toggleDone('${key}', ${!todo.done})">
+								<span>${todo.title}</span>
+								<small>(Updated: ${new Date(todo.updatedAt).toLocaleString()})</small>
+								<button class="button-small" onclick="deleteTodo('${key}')">Del</button>
+							</li>`;
 					});
 			};
 

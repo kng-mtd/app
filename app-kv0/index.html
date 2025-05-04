@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" x-data="{ dark: false }" :class="{ 'dark': dark }">
+<html lang="en" x-data="{ dark: true }" :class="{ 'dark': dark }">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,7 +20,7 @@
 			}
 		</style>
 	</head>
-	<body class="container" x-data="{ dark: true }" :class="{ 'dark': dark }">
+	<body class="container" x-data="{ dark: false }" :class="{ 'dark': dark }">
 		<h2>
 			Todo List
 			<a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
@@ -103,13 +103,14 @@
 				if (input.value.trim()) {
 					await addTodo(input.value.trim());
 					input.value = '';
+					setTimeout(fetchTodos, 5000);
 				}
 			});
 
 			// Initial load and auto-refresh every 5 seconds
 			document.addEventListener('DOMContentLoaded', () => {
 				fetchTodos();
-				setInterval(fetchTodos, 5000);
+				setInterval(fetchTodos, 10000);
 			});
 		</script>
 	</body>
