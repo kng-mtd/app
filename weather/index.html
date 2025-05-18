@@ -1,1 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Weather Forecast</title>
+		<style>
+			input,
+			button {
+				padding: 0.5em;
+				font-size: 1em;
+			}
+			.card {
+				margin-top: 1em;
+				padding: 1em;
+				border: 1px solid #ccc;
+				border-radius: 8px;
+			}
+			.forecast {
+				margin-top: 1em;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Weather Forecast</h1>
+		<input type="text" id="cityInput" placeholder="Enter city name" />
+		<button onclick="getWeather()">Search</button>
 
+		<div id="weatherResult"></div>
+		<div class="forecast" id="forecastResult"></div>
+
+		<script>
+			//const apiUrl='http://localhost:8787/proxy'; // Local testing
+			const apiUrl = 'https://weather.muchagorou112.workers.dev/proxy';
+
+			async function getWeather() {
+				const city = document.getElementById('cityInput').value.trim();
+				if (!city) return;
+
+				document.getElementById('weatherResult').innerHTML = 'Loading...';
+				document.getElementById('forecastResult').innerHTML = '';
+
+				const [weather, forecast] = await Promise.all([
+					fetch(apiUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ endpoint: 'weather', query: { q: city, units: 'metric', lang: 'en' } }),
+					}).then((r) => r.json()),
+					fetch(apiUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ endpoint: 'forecast', query: { q: city, units: 'metric', lang: 'en' } }),
+					}).then((r) => r.json()),
+				]);
+
+				// Show current weather
+				const weatherHtml = `
+        <div class="card">
+          <h2>${weather.name} - ${weather.weather[0].description}</h2>
+          <p><strong>Temp:</strong> ${weather.main.temp}°C</p>
+          <p><strong>Humidity:</strong> ${weather.main.humidity}%</p>
+          <p><strong>Wind:</strong> ${weather.wind.speed} m/s</p>
+          <p><strong>Time:</strong> ${weather.date}</p>
+        </div>`;
+				document.getElementById('weatherResult').innerHTML = weatherHtml;
+
+				// Show forecast
+				const forecastHtml = forecast.list
+					.map(
+						(item) => `
+        <div class="card">
+          <p><strong>${item.date}</strong></p>
+          <p>${item.weather[0].description}</p>
+          <p>Temp: ${item.main.temp}°C</p>
+          <p>Wind: ${item.wind.speed} m/s</p>
+        </div>`
+					)
+					.join('');
+				document.getElementById('forecastResult').innerHTML = forecastHtml;
+			}
+		</script>
+	</body>
+</html>

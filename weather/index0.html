@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Weather App</title>
+		<!-- Google Fonts -->
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<!-- CSS Reset -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<!-- Milligram CSS -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+	</head>
+	<body>
+		<div class="container">
+			<h1>Weather App</h1>
+			<input type="text" id="city" placeholder="Enter city name" />
+			<button onclick="getWeather()">Get Weather</button>
+
+			<div id="weather-info">
+				<p id="city-name"></p>
+				<p id="temperature"></p>
+				<p id="description"></p>
+				<img id="weather-icon" />
+			</div>
+		</div>
+		<script>
+			async function getWeather() {
+				const city = document.getElementById('city').value;
+				const apiKey = '5aba4e584ab653bec79cb4fbdce3c23a'; // Insert your OpenWeatherMap API key here
+				const url = `https://api.openweathermap.org/data/2.5/weather?appid=${apiKey}&q=${city}&units=metric&lang=en`;
+
+				try {
+					const response = await fetch(url);
+					const data = await response.json();
+					console.log(data);
+
+					if (data.cod === 200) {
+						document.getElementById('city-name').textContent = `City: ${data.name}`;
+						document.getElementById('temperature').textContent = `Temperature: ${data.main.temp}°C`;
+						document.getElementById('description').textContent = `Weather: ${data.weather[0].description}`;
+						document.getElementById('weather-icon').src = `https://openweathermap.org/img/wn/${data.weather[0].icon}.png`;
+					} else {
+						alert('City not found.');
+					}
+				} catch (error) {
+					alert('Failed to retrieve weather data.');
+				}
+			}
+		</script>
+	</body>
+</html>

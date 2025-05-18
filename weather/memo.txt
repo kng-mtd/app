@@ -1,0 +1,151 @@
+フロントエンドはクエリだけをCloudflare Workers(proxy)に送信し、Workers側が実際のAPIエンドポイントとトークンを使ってレスポンスを返す
+
+---
+
+wrangler.jsonc
+
+{
+  "vars": {
+    "OPENWEATHER_API_KEY": "xxxxxxxxxxxxxxxxxxxxxxxx",
+  }
+}
+
+
+
+src/index.js
+
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+const app = new Hono();
+
+// Enable default CORS (allows all origins, GET/POST/OPTIONS)
+app.use(cors());
+
+const ENDPOINT_MAP = {
+	weather: 'https://api.openweathermap.org/data/2.5/weather',
+	forecast: 'https://api.openweathermap.org/data/2.5/forecast',
+};
+
+// Format timestamp as 'YYYY-MM-DD HH:MM' in local time (JST)
+const formatDate = (dt, timezoneOffsetMinutes = 0) => {
+	const date = new Date(dt * 1000); // Convert UNIX timestamp to Date object
+	const localTime = new Date(date.getTime() + timezoneOffsetMinutes * 60_000); // Apply offset (timezone)
+	const yyyy = localTime.getFullYear();
+	const mm = String(localTime.getMonth() + 1).padStart(2, '0');
+	const dd = String(localTime.getDate()).padStart(2, '0');
+	const hh = String(localTime.getHours()).padStart(2, '0');
+	const min = String(localTime.getMinutes()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+};
+
+const transformResponse = (endpoint, data) => {
+	// Japan Standard Time (JST) offset
+	const JST_OFFSET = 9 * 60; // 9 hours in minutes
+
+	if (endpoint === 'weather') {
+		data.date = formatDate(data.dt, JST_OFFSET); // Convert the current weather timestamp
+	} else if (endpoint === 'forecast' && Array.isArray(data.list)) {
+		data.list = data.list.map((item) => ({
+			...item,
+			date: formatDate(item.dt, JST_OFFSET), // Convert forecast timestamp
+		}));
+	}
+	return data;
+};
+
+app.post('/proxy', async (c) => {
+	try {
+		const body = await c.req.json();
+		const endpoint = body.endpoint;
+		const method = body.method || 'GET';
+		const query = body.query || {};
+
+		const token = c.env.OPENWEATHER_API_KEY;
+		if (!token) return c.text('API key not configured.', 500);
+
+		const baseUrl = ENDPOINT_MAP[endpoint];
+		if (!baseUrl) return c.text('Invalid endpoint.', 400);
+
+		query.appid = token;
+		const url = `${baseUrl}?${new URLSearchParams(query).toString()}`;
+
+		const res = await fetch(url, {
+			method,
+			headers: { 'Content-Type': 'application/json' },
+		});
+
+		const raw = await res.json();
+		const data = transformResponse(endpoint, raw);
+		return c.json(data, res.status);
+	} catch (err) {
+		return c.text('Failed to fetch data.', 500);
+	}
+});
+
+export default app;
+
+
+
+
+test
+
+wrangler dev
+
+curl -X POST http://localhost:8787/proxy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "weather",
+    "query": {
+      "q": "Tokyo",
+      "units": "metric",
+      "lang": "en"
+    }
+  }' | jq
+
+curl -X POST http://localhost:8787/proxy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "forecast",
+    "query": {
+      "q": "Tokyo",
+      "units": "metric",
+      "lang": "en"
+    }
+  }' | jq
+
+
+
+wrangler deploy
+
+curl -X POST https://weather.muchagorou112.workers.dev/proxy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "weather",
+    "query": {
+      "q": "Tokyo",
+      "units": "metric",
+      "lang": "en"
+    }
+  }' | jq
+
+curl -X POST https://weather.muchagorou112.workers.dev/proxy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "forecast",
+    "query": {
+      "q": "Tokyo",
+      "units": "metric",
+      "lang": "en"
+    }
+  }' | jq
+
+
+
+
+  openweathermap icon list
+  https://openweathermap.org/weather-conditions
+
+  https://openweathermap.org/img/wn/---.png
+
+  

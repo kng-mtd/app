@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Weather App</title>
+		<!-- Google Fonts -->
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+		<!-- CSS Reset -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+		<!-- Milligram CSS -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+		<!-- Alpine.js -->
+		<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+		<style>
+			.forecast-row {
+				display: flex;
+				gap: 1em;
+				margin-bottom: 1em;
+			}
+			.forecast-item {
+				text-align: center;
+				width: 80px;
+				background: #ccc;
+				border-radius: 6px;
+				padding: 0.5em;
+			}
+		</style>
+	</head>
+	<body class="container">
+		<div x-data="weatherApp()">
+			<h1>Weather Forecast</h1>
+
+			<input type="text" x-model="city" placeholder="Enter city" style="width: 200px" />
+			<button @click="fetchWeather">Get</button>
+
+			<template x-if="loading">
+				<p>Loading...</p>
+			</template>
+
+			<template x-if="error">
+				<p style="color: red" x-text="error"></p>
+			</template>
+
+			<template x-if="weather">
+				<div>
+					<h3 x-text="weather.name + '   ' + weather.date "></h3>
+					<h4>
+						<strong>Weather:</strong> <span x-text="weather.weather[0].description"></span>... <strong>Temp:</strong>
+						<span x-text="weather.main.temp"></span> °C... <strong> Humidity:</strong> <span x-text="weather.main.humidity"></span>%...
+						<strong> Wind:</strong> <span x-text="weather.wind.speed"></span> m/s
+					</h4>
+				</div>
+			</template>
+
+			<div class="forecast">
+				<template x-for="[day, items] in groupedForecast" :key="day">
+					<div>
+						<p><strong x-text="day"></strong></p>
+						<div class="forecast-row">
+							<template x-for="item in items" :key="item.dt">
+								<div class="forecast-item">
+									<div x-text="item.date.split(' ')[1]"></div>
+									<img :src="'../icon/' + item.weather[0].icon + '.png'" alt="" />
+									<div x-text="Math.round(item.main.temp) + '°C'"></div>
+								</div>
+							</template>
+						</div>
+					</div>
+				</template>
+			</div>
+		</div>
+
+		<script>
+			function weatherApp() {
+				return {
+					city: '',
+					weather: null,
+					forecast: [],
+					groupedForecast: [],
+					loading: false,
+					error: '',
+					async fetchWeather() {
+						this.loading = true;
+						this.error = '';
+						this.weather = null;
+						this.forecast = [];
+						this.groupedForecast = [];
+
+						//const apiUrl='http://localhost:8787/proxy'; // Local testing
+						const apiUrl = 'https://weather.muchagorou112.workers.dev/proxy';
+
+						try {
+							const [wRes, fRes] = await Promise.all([
+								fetch(apiUrl, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ endpoint: 'weather', query: { q: this.city, units: 'metric', lang: 'en' } }),
+								}),
+								fetch(apiUrl, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ endpoint: 'forecast', query: { q: this.city, units: 'metric', lang: 'en' } }),
+								}),
+							]);
+
+							if (!wRes.ok || !fRes.ok) throw new Error('Failed to fetch');
+
+							this.weather = await wRes.json();
+							const forecastData = await fRes.json();
+
+							// Group forecast by day
+							const grouped = {};
+							forecastData.list.forEach((item) => {
+								const day = item.date.split(' ')[0];
+								if (!grouped[day]) grouped[day] = [];
+								grouped[day].push(item);
+							});
+							this.groupedForecast = Object.entries(grouped); // [[day, items], ...]
+						} catch (err) {
+							this.error = 'Error fetching weather data.';
+						} finally {
+							this.loading = false;
+						}
+					},
+				};
+			}
+		</script>
+	</body>
+</html>
