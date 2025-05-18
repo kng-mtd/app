@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Day pilot</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/@daypilot/daypilot-lite-javascript@3.32.1/daypilot-javascript.min.js"></script>
+  </head>
+  <body>
+    <div id="dp"></div>
+
+    <script>
+      // Create a new DayPilot calendar instance
+      const dp = new DayPilot.Calendar("dp", {
+        viewType: "Week", // Day, Week, or Month
+        startDate: DayPilot.Date.today(), // Today's date
+        eventMoveHandling: "Update", // Allow drag to move events
+        eventResizeHandling: "Update", // Allow resizing events
+
+        // Called when a time range (empty slot) is selected
+        onTimeRangeSelected: function (args) {
+          const name = prompt("Enter event title:");
+          if (name) {
+            dp.events.add({
+              id: DayPilot.guid(), // Generate a unique ID
+              text: name,
+              start: args.start,
+              end: args.end,
+            });
+          }
+          dp.clearSelection(); // Clear the selection
+        },
+
+        // Called when an event is clicked
+        onEventClick: function (args) {
+          const action = prompt(
+            "Edit or delete event:\n- Type new text to edit\n- Type 'delete' to remove",
+            args.e.data.text
+          );
+          if (action === "delete") {
+            dp.events.remove(args.e); // Delete the event
+          } else if (action) {
+            args.e.data.text = action; // Update event title
+            dp.events.update(args.e);
+          }
+        },
+      });
+
+      // Initial events
+      dp.events.list = [
+        {
+          id: "1",
+          text: "Initial Event",
+          start: DayPilot.Date.today().addHours(10),
+          end: DayPilot.Date.today().addHours(11),
+        },
+      ];
+
+      dp.init(); // Initialize the calendar
+    </script>
+  </body>
+</html>

@@ -1,1 +1,26 @@
+https://javascript.daypilot.org/open-source/
+
+https://javascript.daypilot.org/demo/lite/calendar/index.html
+
+https://javascript.daypilot.org/calendar/
+
+
+https://www.jsdelivr.com/package/npm/@daypilot/daypilot-lite-javascript
+
+<script src="https://cdn.jsdelivr.net/npm/@daypilot/daypilot-lite-javascript@3.32.1/daypilot-javascript.min.js"></script>
+
+
+https://javascript.daypilot.org/download/
+
+<script src="/daypilot-lite-javascript-2025.1.638/scripts/daypilot-all.min.js"></script>
+
+
+https://www.npmjs.com/package/@daypilot/daypilot-lite-javascript
+
+npm install @daypilot/daypilot-lite-javascript
+
+
+https://builder.daypilot.org/
+
+
 

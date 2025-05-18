@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!-- daypilot with KV for multi user, timestamp is added, automatically sync -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DayPilot with KV</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/@daypilot/daypilot-lite-javascript@3.32.1/daypilot-javascript.min.js"></script>
+
+    <style>
+      #dp {
+        max-width: 800px;
+        margin: 20px auto;
+      }
+      .controls {
+        text-align: center;
+      }
+      button {
+        margin: 0 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <button onclick="goPrev()">◀️ Previous</button>
+      <button onclick="goToday()">Today</button>
+      <button onclick="goNext()">▶️ Next</button>
+      <button onclick="saveEvents()">💾 Save</button>
+    </div>
+
+    <div id="dp"></div>
+
+    <script>
+      const appName = 'daypilot';
+      const kvApiBase = 'https://kv-app1.muchagorou112.workers.dev/kv';
+      let lastUpdatedAt = null;
+
+      async function fetchEvents() {
+        const res = await fetch(`${kvApiBase}/get/${appName}/events`);
+        if (!res.ok) return { updatedAt: null, events: [] };
+        const text = await res.text();
+        return JSON.parse(text);
+      }
+
+      async function saveEvents() {
+        const events = dp.events.list.map((e) => ({
+          id: e.id,
+          text: e.text,
+          start: e.start.toString(),
+          end: e.end.toString(),
+          updatedAt: new Date().toISOString(),
+        }));
+
+        const payload = {
+          updatedAt: new Date().toISOString(),
+          events,
+        };
+
+        const remote = await fetchEvents();
+        if (
+          remote.updatedAt &&
+          new Date(remote.updatedAt) > new Date(lastUpdatedAt)
+        ) {
+          const confirmSave = confirm(
+            'Someone else has saved newer data. Overwrite anyway?'
+          );
+          if (!confirmSave) {
+            alert('Save canceled.');
+            return;
+          }
+        }
+
+        const res = await fetch(`${kvApiBase}/set`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app: appName,
+            key: 'events',
+            value: payload,
+          }),
+        });
+
+        if (res.ok) {
+          alert('Saved successfully!');
+          lastUpdatedAt = payload.updatedAt;
+        } else {
+          alert('Failed to save.');
+        }
+      }
+
+      async function syncLoop() {
+        try {
+          const data = await fetchEvents();
+          if (
+            !data.updatedAt ||
+            new Date(data.updatedAt) <= new Date(lastUpdatedAt)
+          ) {
+            return setTimeout(syncLoop, 5000);
+          }
+
+          dp.events.list = data.events;
+          dp.update();
+          lastUpdatedAt = data.updatedAt;
+        } catch (e) {
+          console.warn('Sync error', e);
+        }
+
+        setTimeout(syncLoop, 5000);
+      }
+
+      const dp = new DayPilot.Calendar('dp', {
+        viewType: 'Week',
+        startDate: DayPilot.Date.today(),
+        eventMoveHandling: 'Update',
+        eventResizeHandling: 'Update',
+
+        onTimeRangeSelected: function (args) {
+          const name = prompt('Enter event title:');
+          if (name) {
+            dp.events.add({
+              id: DayPilot.guid(),
+              text: name,
+              start: args.start,
+              end: args.end,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          dp.clearSelection();
+        },
+
+        onEventClick: function (args) {
+          const action = prompt(
+            "Edit or delete event:\n- Type new text to edit\n- Type 'delete' to remove",
+            args.e.data.text
+          );
+          if (action === 'delete') {
+            dp.events.remove(args.e);
+          } else if (action) {
+            args.e.data.text = action;
+            args.e.data.updatedAt = new Date().toISOString();
+            dp.events.update(args.e);
+          }
+        },
+
+        onEventMoved: function (args) {
+          args.e.data.updatedAt = new Date().toISOString();
+        },
+
+        onEventResized: function (args) {
+          args.e.data.updatedAt = new Date().toISOString();
+        },
+      });
+
+      // Load on startup
+      fetchEvents().then((data) => {
+        dp.events.list = data.events;
+        dp.init();
+        lastUpdatedAt = data.updatedAt;
+        syncLoop();
+      });
+
+      // Navigation buttons
+      function goPrev() {
+        dp.startDate = dp.startDate.addDays(-7);
+        dp.update();
+      }
+
+      function goNext() {
+        dp.startDate = dp.startDate.addDays(7);
+        dp.update();
+      }
+
+      function goToday() {
+        dp.startDate = DayPilot.Date.today();
+        dp.update();
+      }
+    </script>
+  </body>
+</html>
