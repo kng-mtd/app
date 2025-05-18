@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ showModal: false, selectedOptions: [] }">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Modal with Multi-Select</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <!-- Alpine.js -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.10.3/dist/cdn.min.js"
+      defer
+    ></script>
+
+    <style>
+      #overlay {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        top: 0;
+        left: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+      }
+
+      #modal {
+        position: fixed;
+        height: auto;
+        width: 300px;
+        top: 30%;
+        left: calc(50% - 150px);
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        z-index: 1001;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div x-data="{ showModal: false, selectedOptions: [] }">
+      <button @click="showModal = true">Open Modal</button>
+
+      <!-- Overlay -->
+      <div id="overlay" x-show="showModal" style="display: none"></div>
+
+      <!-- Modal -->
+      <div id="modal" x-show="showModal" style="display: none" x-transition>
+        <p>Select one or more options:</p>
+        <select x-model="selectedOptions" multiple>
+          <option value="opt1">option1</option>
+          <option value="opt2">option2</option>
+          <option value="opt3">option3</option>
+        </select>
+
+        <div style="margin-top: 1rem">
+          <button
+            @click="
+              showModal = false;
+              window.selectedOption = selectedOptions;
+              document.dispatchEvent(new CustomEvent('selectionMade'));
+            "
+          >
+            Yes
+          </button>
+          <button @click="showModal = false">No</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- External Script -->
+    <script>
+      document.addEventListener("selectionMade", () => {
+        if (Array.isArray(window.selectedOption)) {
+          console.log("User selected:");
+          window.selectedOption.forEach((item, index) => {
+            console.log(`  ${index + 1}: ${item}`);
+          });
+        } else {
+          console.log("No selection made.");
+        }
+      });
+    </script>
+  </body>
+</html>

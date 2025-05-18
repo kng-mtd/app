@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dialog</title>
+  </head>
+
+  <body>
+    <div id="dialog">
+      <p>Please click a button</p>
+      <button id="yes">Yes</button>
+      <button id="no">No</button>
+      <button id="cancel">Cancel</button>
+    </div>
+
+    <button id="btn">Open Dialog</button>
+
+    <style>
+      #dialog {
+        width: 250px;
+        margin: auto;
+        margin-top: 40vh;
+        padding: 30px 20px;
+        display: none;
+        text-align: center;
+        border: 1px solid #aaa;
+        box-shadow: 2px 2px 4px #888;
+      }
+    </style>
+
+    <script type="text/javascript">
+      let btn = document.getElementById("btn");
+      let yes = document.getElementById("yes");
+      let no = document.getElementById("no");
+      let cancel = document.getElementById("cancel");
+
+      // Show dialog when the main button is clicked
+      btn.addEventListener("click", function () {
+        dialog.style.display = "block";
+        btn.style.display = "none";
+      });
+
+      // "Yes" button clicked
+      yes.addEventListener("click", function () {
+        console.log("yes");
+        dialog.style.display = "none";
+        btn.style.display = "block";
+      });
+
+      // "No" button clicked
+      no.addEventListener("click", function () {
+        console.log("no");
+        dialog.style.display = "none";
+        btn.style.display = "block";
+      });
+
+      // "Cancel" button clicked
+      cancel.addEventListener("click", function () {
+        console.log("cancel");
+        dialog.style.display = "none";
+        btn.style.display = "block";
+      });
+    </script>
+  </body>
+</html>

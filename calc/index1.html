@@ -30,36 +30,37 @@
       body {
         display: flex;
         justify-content: center;
-        align-items: center;
-        height: 100vh;
-        background-color: #eee;
+        background: black;
       }
       .calculator {
+        height: 400px;
         width: 250px;
-        background: white;
+        background: #aaa;
         padding: 10px;
         border-radius: 10px;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        box-shadow: 0px 0px 5px 5px rgba(255, 255, 255, 0.3);
       }
       .display {
         width: 90%;
         height: 50px;
         text-align: right;
         padding: 10px;
-        font-size: 1.5em;
-        border: none;
-        background: #eee;
+        font-size: 3rem;
+        background: #ddd !important;
         margin-bottom: 10px;
         border-radius: 5px;
       }
-      .buttons {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 5px;
+      .memory-display {
+        font-size: 1.5rem;
+        color: #444;
+        margin-bottom: 10px;
+        text-align: right;
       }
       button {
-        font-size: 1.5em;
-        padding: 5px;
+        width: 50px;
+        font-size: 3rem;
+        padding: 1rem;
+        line-height: 2rem;
         border: none;
         cursor: pointer;
       }
@@ -74,9 +75,9 @@
         background: #f80;
       }
       .equal {
+        width: 100px;
         background: #040;
         color: white;
-        grid-column: span 2;
       }
       .equal:active {
         background: #080;
@@ -89,17 +90,12 @@
         background: #a00;
       }
       .memory {
+        font-size: 1.5rem;
         background: #008;
         color: white;
       }
       .memory:active {
         background: #00f;
-      }
-      .memory-display {
-        font-size: 1em;
-        color: #888;
-        margin-bottom: 10px;
-        text-align: right;
       }
     </style>
   </head>
@@ -150,26 +146,28 @@
         <button class="memory" @click="memorySubtract()">M-</button>
         <button class="memory" @click="memoryRecall()">MR</button>
         <button class="memory" @click="memoryClear()">MC</button>
-
-        <!-- Square Root button -->
-
+        <br />
         <!-- Regular calculator buttons -->
         <button class="operator" @click="append('+')">+</button>
         <button @click="append('7')">7</button>
         <button @click="append('8')">8</button>
         <button @click="append('9')">9</button>
+        <br />
         <button class="operator" @click="append('-')">-</button>
         <button @click="append('4')">4</button>
         <button @click="append('5')">5</button>
         <button @click="append('6')">6</button>
+        <br />
         <button class="operator" @click="append('*')">*</button>
         <button @click="append('1')">1</button>
         <button @click="append('2')">2</button>
         <button @click="append('3')">3</button>
+        <br />
         <button class="operator" @click="append('/')">/</button>
         <button @click="append('0')">0</button>
         <button @click="append('.')">.</button>
         <button class="clear" @click="clear()">C</button>
+        <br />
         <button class="operator" @click="sqrt()">√</button>
         <button class="equal" @click="calculate()">=</button>
       </div>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ showModal: false, selectedOption: '' }">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dialog full</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <!-- Alpine.js -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.10.3/dist/cdn.min.js"
+      defer
+    ></script>
+
+    <style>
+      #overlay {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        top: 0;
+        left: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+      }
+
+      #modal {
+        position: fixed;
+        height: 150px;
+        width: 300px;
+        top: calc(50% - 50px);
+        left: calc(50% - 150px);
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        z-index: 1001;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button @click="showModal = true">Open Modal</button>
+
+    <!-- Overlay -->
+    <div
+      id="overlay"
+      x-show="showModal"
+      @click="showModal = false"
+      style="display: none"
+    ></div>
+
+    <!-- Modal -->
+    <div id="modal" x-show="showModal" style="display: none" x-transition>
+      <p>Are you sure?</p>
+      <button
+        @click="
+          selectedOption = 'Yes';
+          showModal = false;
+          window.selectedOption = selectedOption; 
+          console.log('User selected:', selectedOption);
+        "
+      >
+        Yes
+      </button>
+      <button
+        @click="
+          selectedOption = 'No';
+          showModal = false;
+          window.selectedOption = selectedOption;
+          console.log('User selected:', selectedOption);
+        "
+      >
+        No
+      </button>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // This will only show when the modal has been closed
+        // `selectedOption` will always hold the value from Alpine.js
+        console.log("Selected option on page load:", window.selectedOption);
+      });
+    </script>
+  </body>
+</html>

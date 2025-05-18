@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Alpine Dialog</title>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <style>
+      #dialog {
+        width: 250px;
+        margin: auto;
+        margin-top: 40vh;
+        padding: 30px 20px;
+        text-align: center;
+        border: 1px solid #aaa;
+        box-shadow: 2px 2px 4px #888;
+        background: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div x-data="{ showDialog: false }">
+      <!-- Trigger Button -->
+      <button x-show="!showDialog" @click="showDialog = true">
+        Open Dialog
+      </button>
+
+      <!-- Dialog -->
+      <div id="dialog" x-show="showDialog" x-transition>
+        <p>Please click a button</p>
+        <button @click="console.log('yes'); showDialog = false">Yes</button>
+        <button @click="console.log('no'); showDialog = false">No</button>
+        <button @click="console.log('cancel'); showDialog = false">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </body>
+</html>
