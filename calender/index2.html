@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- daypilot with KV for one user -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DayPilot with KV</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/@daypilot/daypilot-lite-javascript@3.32.1/daypilot-javascript.min.js"></script>
+
+    <style>
+      #dp {
+        max-width: 800px;
+        margin: 20px auto;
+      }
+      .controls {
+        text-align: center;
+      }
+      button {
+        margin: 0 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <button onclick="goPrev()">◀️ Previous</button>
+      <button onclick="goToday()">Today</button>
+      <button onclick="goNext()">▶️ Next</button>
+      <button onclick="saveEvents()">💾 Save</button>
+    </div>
+
+    <div id="dp"></div>
+
+    <script>
+      const appName = 'daypilot';
+      const kvApiBase = 'https://kv-app1.muchagorou112.workers.dev/kv';
+
+      // Load events from KV
+      async function loadEvents() {
+        const res = await fetch(`${kvApiBase}/get/${appName}/events`);
+        if (!res.ok) return [];
+        const text = await res.text();
+        return JSON.parse(text);
+      }
+
+      // Save events to KV (called only on save button click)
+      async function saveEvents() {
+        const list = dp.events.list.map((e) => ({
+          id: e.id,
+          text: e.text,
+          start: e.start.toString(),
+          end: e.end.toString(),
+        }));
+
+        const res = await fetch(`${kvApiBase}/set`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app: appName,
+            key: 'events',
+            value: list,
+          }),
+        });
+
+        if (res.ok) {
+          alert('Saved!');
+        } else {
+          alert('Save failed!');
+        }
+      }
+
+      // Initialize DayPilot Calendar
+      const dp = new DayPilot.Calendar('dp', {
+        viewType: 'Week',
+        startDate: DayPilot.Date.today(),
+        eventMoveHandling: 'Update',
+        eventResizeHandling: 'Update',
+
+        onTimeRangeSelected: function (args) {
+          const name = prompt('Enter event title:');
+          if (name) {
+            dp.events.add({
+              id: DayPilot.guid(),
+              text: name,
+              start: args.start,
+              end: args.end,
+            });
+          }
+          dp.clearSelection();
+        },
+
+        onEventClick: function (args) {
+          const action = prompt(
+            "Edit or delete event:\n- Type new text to edit\n- Type 'delete' to remove",
+            args.e.data.text
+          );
+          if (action === 'delete') {
+            dp.events.remove(args.e);
+          } else if (action) {
+            args.e.data.text = action;
+            dp.events.update(args.e);
+          }
+        },
+
+        onEventMoved: function () {},
+        onEventResized: function () {},
+      });
+
+      // Load initial data
+      loadEvents().then((events) => {
+        dp.events.list = events;
+        dp.init();
+      });
+
+      // Navigation buttons
+      function goPrev() {
+        dp.startDate = dp.startDate.addDays(-7);
+        dp.update();
+      }
+
+      function goNext() {
+        dp.startDate = dp.startDate.addDays(7);
+        dp.update();
+      }
+
+      function goToday() {
+        dp.startDate = DayPilot.Date.today();
+        dp.update();
+      }
+    </script>
+  </body>
+</html>
