@@ -1,1 +1,495 @@
+`contenteditable`とは？
 
+HTMLの任意の要素（`<div>`, `<p>` など）に
+
+```html
+contenteditable="true"
+```
+
+を付けると、その部分が **テキストエディタのように直接編集可能** になります。
+
+
+```html
+<div contenteditable="true">
+  Edit this text directly in the browser!
+</div>
+```
+
+この `<div>` はそのままブラウザ上で編集でき、`innerText` や `innerHTML` で中身を取得・保存できます。
+
+
+## 値の取得と保存
+
+```javascript
+const content = document.getElementById('editor').innerText; // プレーンテキスト
+localStorage.setItem('my-content', content);
+```
+
+
+### 特徴：
+
+| 特性            | 内容                                                  |
+| ------------- | --------------------------------------------------- |
+| 使えるタグ         | `<div>`, `<span>`, `<p>` など                         |
+| HTMLも入力可能     | 文字だけでなく、`<b>`, `<i>`, `<h1>` なども入力可（`innerHTML`使用時） |
+| JSで制御可能       | イベントをつけて保存・反映できる                                    |
+| デフォルトで編集可能になる | テキストエリアなしでもOK                                       |
+
+---
+
+
+
+
+`marked.js` は、Markdown を HTML に変換するための高速で柔軟な JavaScript ライブラリです。**クライアントサイドでもサーバーサイド（Node.js）でも使用可能**です。
+
+---
+
+## 特徴
+
+| 特徴           | 説明                                 |
+| ------------ | ---------------------------------- |
+| 超高速          | 非常に速い Markdown パーサー                |
+| 柔軟な構成        | カスタムレンダラーで HTML 出力を自由に調整可能         |
+| CommonMark対応 | 標準的な Markdown 記法に対応                |
+| GitHub風対応    | GFM（GitHub Flavored Markdown） にも対応 |
+| HTML含有可      | HTML タグも解析対象（必要なら無効化も可能）           |
+
+
+`marked.setOptions()` で以下のようにオプション設定ができます：
+
+```js
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+  headerIds: false,
+  mangle: false // URLやメールをマングルしない
+});
+
+
+
+## CDNでの使い方（最も簡単）
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+    marked.setOptions({
+    gfm: true,
+    breaks: true
+    });
+
+  const markdown = "# Hello **Markdown**";
+  const html = marked.parse(markdown);
+  document.getElementById('preview').innerHTML = html;
+</script>
+```
+
+---
+
+## 使用例（textarea + プレビュー）
+
+```html
+<textarea id="input"># Hello World</textarea>
+<div id="preview"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  const input = document.getElementById('input');
+  const preview = document.getElementById('preview');
+
+  input.addEventListener('input', () => {
+    const html = marked.parse(input.value);
+    preview.innerHTML = html;
+  });
+
+  // 初期レンダリング
+  preview.innerHTML = marked.parse(input.value);
+</script>
+```
+
+
+
+
+## DOMPurifyとの組み合わせ（XSS対策）
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.3/dist/purify.min.js"></script>
+
+<script>
+  const dirty = marked.parse(userInputMarkdown);
+  const clean = DOMPurify.sanitize(dirty);
+  document.getElementById('preview').innerHTML = clean;
+</script>
+```
+
+---
+
+
+`marked.js` は [CommonMark](https://commonmark.org/) に準拠し、さらに **GitHub Flavored Markdown（GFM）** にも対応しています。以下は `marked.js` が扱える主な Markdown 記法一覧です。
+
+---
+
+## 見出し（Headers）
+
+```markdown
+# H1
+## H2
+### H3
+```
+
+---
+
+## 強調（Emphasis）
+
+```markdown
+*italic* or _italic_
+**bold** or __bold__
+~~strikethrough~~
+```
+
+---
+
+## リスト（Lists）
+
+### ● 順不同リスト（Unordered）
+
+```markdown
+- Item
+* Item
++ Item
+```
+
+### ● 番号付きリスト（Ordered）
+
+```markdown
+1. First
+2. Second
+3. Third
+```
+
+---
+
+## リンク（Links）
+
+```markdown
+[OpenAI](https://openai.com)
+```
+
+---
+
+## 画像（Images）
+
+```markdown
+![Alt text](https://example.com/image.jpg)
+```
+
+---
+
+## 引用（Blockquote）
+
+```markdown
+> This is a quote.
+```
+
+---
+
+## コード（Code）
+
+### ● インラインコード
+
+```markdown
+Use `console.log()` to debug.
+```
+
+### ● コードブロック（フェンス付き）
+
+<pre>
+```js
+function hello() {
+  console.log("Hello, world!");
+}
+```
+</pre>
+
+---
+
+## テーブル（GFM）
+
+```markdown
+| Name  | Age |
+|-------|-----|
+| Alice | 24  |
+| Bob   | 30  |
+```
+
+---
+
+## チェックボックスリスト（GFM）
+
+```markdown
+- [x] Done
+- [ ] Not yet
+```
+
+---
+
+## 水平線（Horizontal rule）
+
+```markdown
+---
+```
+
+---
+
+## HTMLタグ（オプションで無効可）
+
+```markdown
+<div style="color:red">Raw HTML</div>
+```
+
+※ `DOMPurify` を使えば、危険なタグは除去できます。
+
+---
+
+## 改行（GFM: `breaks: true` で有効）
+
+```markdown
+First line  
+Second line
+```
+
+（文末にスペース2つで改行）
+
+---
+
+
+
+MathJax を `marked.js` と組み合わせることで、**Markdown + 数式記法（LaTeX）** の両方に対応したプレビューが可能になります。
+
+---
+
+## 目的
+
+* `marked.js`：Markdown → HTML に変換
+* `MathJax`：`$...$` や `$$...$$` の数式を HTML 内でレンダリング
+
+---
+
+## 最小構成サンプル（Markdown + 数式）
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Markdown + MathJax Preview</title>
+  <style>
+    textarea { width: 100%; height: 200px; }
+    #preview { border: 1px solid #ccc; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h2>Markdown with MathJax</h2>
+
+  <textarea id="editor">
+# Equation Example
+
+Inline math: $E=mc^2$
+
+Block math:
+
+$$
+\int_0^\infty x^2 dx
+$$
+  </textarea>
+
+  <div id="preview"></div>
+
+  <!-- marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- DOMPurify -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.3/dist/purify.min.js"></script>
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+
+    function render() {
+      const markdown = editor.value;
+      const html = marked.parse(markdown);
+      const safe = DOMPurify.sanitize(html);
+      preview.innerHTML = safe;
+      MathJax.typesetPromise([preview]); // 数式を再レンダリング
+    }
+
+    editor.addEventListener('input', render);
+    render(); // 初期レンダリング
+  </script>
+</body>
+</html>
+```
+
+---
+
+## 使える数式記法の例
+
+| Markdown表記            | 説明        |
+| --------------------- | --------- |
+| `$x^2 + y^2 = z^2$`   | インライン数式   |
+| `$$\frac{1}{2}$$`     | ブロック数式    |
+
+
+
+MathJax の記法（LaTeX 形式）を使うことで、Markdown の中に数学的な式や記号を美しくレンダリングできます。以下に **基本記法** と **応用例** を紹介します。
+https://www.tohoho-web.com/ex/mathjax.html
+---
+
+## ✅ 基本構文
+
+| 種類       | 記法              | 説明           |
+| -------- | --------------- | ------------ |
+| インライン数式  | `$ ... $`       | テキストの途中に数式   |
+| ブロック数式   | `$$ ... $$`     | 独立した数式行として表示 |
+| 複数行のブロック | `$$` と `\\` で改行 | 改行や整列が可能     |
+
+---
+
+## よく使うMathJax（LaTeX）記法一覧
+
+### 基本演算・指数・分数
+
+```latex
+x^2                →  x²
+x_1                →  下付き文字
+\frac{a}{b}        →  分数
+\sqrt{x}           →  √x
+\sqrt[n]{x}        →  n乗根
+```
+
+---
+
+### ギリシャ文字
+
+```latex
+\alpha \beta \gamma \pi \Omega
+```
+
+表示例： α β γ π Ω
+
+---
+
+### 演算子
+
+```latex
+\pm \times \div \cdot \leq \geq \neq \approx
+```
+
+表示例： ± × ÷ ⋅ ≤ ≥ ≠ ≈
+
+---
+
+### 関数・記号
+
+```latex
+\sin \cos \tan \log \ln \exp
+\infty \partial \nabla
+```
+
+表示例： sin cos log ∞ ∂ ∇
+
+---
+
+### 括弧と整形
+
+```latex
+\left( \frac{a}{b} \right)
+```
+
+表示例： 括弧サイズが式に合わせて拡大されます。
+
+---
+
+### 行列
+
+```latex
+\begin{bmatrix}
+  a & b \\\\
+  c & d
+\end{bmatrix}
+```
+
+表示例：
+
+$$
+\begin{bmatrix}
+  a & b \\\\
+  c & d
+\end{bmatrix}
+$$
+
+---
+
+### 総和・積分・極限など
+
+```latex
+\sum_{i=1}^n i
+\int_0^\infty e^{-x} dx
+\lim_{x \to 0} \frac{\sin x}{x}
+```
+
+---
+
+### ケース分け（cases）
+
+```latex
+f(x) = \begin{cases}
+  x^2 & \text{if } x \geq 0 \\
+  -x  & \text{if } x < 0
+\end{cases}
+```
+
+---
+
+## ✅ 注意点
+
+| ポイント               | 内容              |
+| ------------------ | --------------- |
+| バックスラッシュ `\` は必須   | LaTeXコマンドの始まり   |
+| ブロック式は `$$ ... $$` | センター揃えで大きく表示される |
+| 改行は `\\`           | 数式ブロック内で改行可     |
+
+---
+
+## ✏️ 例（Markdown内で）
+
+```markdown
+Einstein's equation: $E = mc^2$
+
+$$
+f(x) = \int_{-\infty}^{\infty} e^{-x^2} dx
+$$
+
+Matrix:
+
+$$
+\begin{bmatrix}
+1 & 2 \\
+3 & 4
+\end{bmatrix}
+$$
+```
+
+
+VSCodeでMarkdownファイルをプレビュー
+
+    Ctrl + Shift + V (Windows) または Cmd + Shift + V (macOS) を押すと、Markdownのプレビューを右側に表示できます。
+
+    また、ファイル内で右クリックして「Markdown: Open Preview」を選択することもできます。
