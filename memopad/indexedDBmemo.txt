@@ -1,0 +1,305 @@
+`localStorage` の代わりに `IndexedDB` を使えば、より柔軟で大規模なデータ保存が可能になります。
+
+IndexedDB の内容をブラウザで確認・削除するには、以下の手順でデベロッパーツール（DevTools）を使います：
+
+---
+
+
+1. **対象のWebページを開く**（例：あなたのメモ帳アプリのページ）
+2.右クリック →「検証」 または `F12` キーで **DevTools** を開く
+3.Application or Strage タブ を選択
+4. 左側メニューから **IndexedDB** を選択
+5. 使用している **データベース名（例: `memoDB`）** をクリック
+6. `kv-store`（またはあなたが使っている storeName）をクリックすると、保存されているキーと値が確認可能
+
+---
+
+### 削除方法
+
+#### データ1件ずつ削除
+
+* 該当のエントリを右クリック → `Delete` を選択
+
+#### データベースごと削除
+
+1. `memoDB` を右クリック → `Delete database`
+2. 再読み込みすると完全に消えています
+
+
+
+
+
+
+### 1. 基本構成（`memoDB` という名前のデータベース）
+
+```js
+let db;
+
+window.onload = function () {
+  const request = indexedDB.open("memoDB", 1);
+
+  request.onerror = function () {
+    console.error("IndexedDB failed to open");
+  };
+
+  request.onsuccess = function () {
+    db = request.result;
+    loadNotes();
+  };
+
+  request.onupgradeneeded = function (e) {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("notes")) {
+      db.createObjectStore("notes", { autoIncrement: true });
+    }
+  };
+};
+```
+
+---
+
+### 2. メモを保存する関数
+
+```js
+function saveMemo() {
+  const memoText = document.getElementById("memo").value.trim();
+  if (memoText === "") {
+    alert("Note cannot be empty!");
+    return;
+  }
+
+  const tx = db.transaction("notes", "readwrite");
+  const store = tx.objectStore("notes");
+  store.add(memoText);
+
+  tx.oncomplete = function () {
+    document.getElementById("memo").value = "";
+    loadNotes();
+  };
+}
+```
+
+---
+
+### 3. メモを読み込んで表示
+
+```js
+function loadNotes() {
+  const notesList = document.getElementById("notesList");
+  notesList.innerHTML = "";
+
+  const tx = db.transaction("notes", "readonly");
+  const store = tx.objectStore("notes");
+  const request = store.openCursor();
+
+  request.onsuccess = function (e) {
+    const cursor = e.target.result;
+    if (cursor) {
+      const noteItem = document.createElement("div");
+      noteItem.innerHTML = `
+        <div style="background: #eee; margin: 5px; border-radius: 5px;">
+          <p style="display: inline-block; width: 300px;">${cursor.value}</p>
+          <button class="button-small" style="background: #a00;" onclick="deleteMemo(${cursor.key})">Del</button>
+        </div>
+      `;
+      notesList.appendChild(noteItem);
+      cursor.continue();
+    }
+  };
+}
+```
+
+---
+
+### 4. メモを削除する関数
+
+```js
+function deleteMemo(key) {
+  const tx = db.transaction("notes", "readwrite");
+  const store = tx.objectStore("notes");
+  store.delete(key);
+
+  tx.oncomplete = function () {
+    loadNotes();
+  };
+}
+```
+
+
+wrapper library idb
+
+https://github.com/jakearchibald/idb
+
+
+`idb` はIndexedDBを Promise ベースで扱いやすくする軽量ライブラリです。
+
+## `openDB()` で得られる DB インスタンスの主なメソッド
+
+| メソッド名                                           | 説明                             |
+| ----------------------------------------------- | ------------------------------ |
+| `get(storeName, key)`                           | 単一の値を取得                        |
+| `getAll(storeName)`                             | ストア内のすべての値を取得                  |
+| `getAllKeys(storeName)`                         | 全キーを取得                         |
+| `getKey(storeName, query)`                      | 条件に一致する最初のキーを取得                |
+| `add(storeName, value, key?)`                   | 新規追加（キーが重複していたら失敗）             |
+| `put(storeName, value, key?)`                   | 新規追加 or 上書き保存                  |
+| `delete(storeName, key)`                        | 指定キーのデータ削除                     |
+| `clear(storeName)`                              | ストア内のすべてのデータ削除                 |
+| `count(storeName)`                              | データ件数を取得                       |
+| `openCursor(storeName, query?, direction?)`     | カーソルを使ってデータを走査                 |
+| `getFromIndex(storeName, indexName, query)`     | インデックス経由で値を取得                  |
+| `getAllFromIndex(storeName, indexName, query?)` | インデックス経由で全取得                   |
+| `deleteDB(name)`                                | DB を削除（別名: `deleteDatabase()`） |
+| `transaction(storeNames, mode)`                 | トランザクションを開始（複数ストア操作などに）        |
+
+---
+
+## 使用例
+
+```js
+const db = await openDB('my-db', 1, {
+  upgrade(db) {
+    db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
+  }
+});
+
+// 書き込み
+await db.add('items', { name: 'apple' });
+await db.put('items', { id: 1, name: 'banana' }); // 上書き
+
+// 読み込み
+const item = await db.get('items', 1);
+const allItems = await db.getAll('items');
+
+// 削除
+await db.delete('items', 1);
+```
+
+---
+
+
+
+## 基本の使い方（`idb@7+` 以降）
+
+```js
+import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
+```
+
+---
+
+## 例：メモの保存アプリ
+
+### 1. データベースを開く
+
+```js
+const db = await openDB('memoDB', 1, {
+  upgrade(db) {
+    if (!db.objectStoreNames.contains('notes')) {
+      db.createObjectStore('notes', { autoIncrement: true });
+    }
+  },
+});
+```
+
+---
+
+### 2. データを追加
+
+```js
+await db.add('notes', 'This is a memo');
+```
+
+---
+
+### 3. データをすべて取得
+
+```js
+const tx = db.transaction('notes', 'readonly');
+const store = tx.objectStore('notes');
+let cursor = await store.openCursor();
+
+while (cursor) {
+  console.log(cursor.key, cursor.value);
+  cursor = await cursor.continue();
+}
+```
+
+---
+
+### 4. 特定のキーのデータを取得
+
+```js
+const value = await db.get('notes', 1);
+console.log(value);
+```
+
+---
+
+### 5. 削除
+
+```js
+await db.delete('notes', 1);
+```
+
+---
+
+### 6. すべて削除（クリア）
+
+```js
+await db.clear('notes');
+```
+
+---
+
+## オブジェクトの保存・更新（Key指定）
+
+```js
+await db.put('notes', { title: 'Test', body: 'Text' }, 1);
+```
+
+※ `put()` は、同じキーがあれば上書きします。
+
+---
+
+
+`autoIncrement: true` を指定すると、IndexedDB（および `idb`）は **主キー（keyPath で指定されたフィールド）を自動で連番採番**してくれます。これは、明示的に ID を指定しなくても、レコードを一意に識別できるようにするための便利な設定です。
+
+
+```js
+db.createObjectStore('notes', {
+  keyPath: 'id',
+  autoIncrement: true
+});
+```
+
+この設定があると、次のようなコードで保存したオブジェクトに自動的に `id` が振られます：
+
+```js
+await db.add('notes', { text: 'hello world' });
+// 実際に保存される形は： { id: 1, text: 'hello world' }
+```
+
+以降、追加するたびに `id: 2`, `id: 3`…と自動で採番されます。
+
+
+* UUID やランダムなキーを自分で用意する必要がない。
+* 自動採番により、CRUD の対象を簡単に指定できる。
+
+
+
+
+usage of CRUDforIndexDB.js
+
+<script type="module">
+  import { KVStoreIDB } from './CRUDforIndexDB.js';
+
+  const store = new KVStoreIDB();
+
+  await store.set("apple", { color: "red", taste: "sweet" });
+  console.log(await store.get("apple")); // { color: "red", taste: "sweet" }
+
+  console.log(await store.findKeysByValueField("taste")); // ["apple"]
+  console.log(await store.getKeyValueMapByField("color")); // { apple: "red" }
+
+  console.log(await store.export()); // JSON string
+</script>

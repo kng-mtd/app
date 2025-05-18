@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      function testLocalStorageLimit() {
+        const testKey = "__storage_test__";
+        let data = "a".repeat(1024); // 1KB letters
+        let i = 0;
+
+        try {
+          while (i < 3000) {
+            // try to 3000KB
+            localStorage.setItem(testKey, data.repeat(i));
+            i++;
+          }
+        } catch (e) {
+          alert(`reached at approximately limit ${i}KB`);
+        }
+        localStorage.removeItem(testKey); // clean up
+        alert(`load to localstorage ${i}KB`);
+      }
+
+      localStorage.clear();
+      // Clear localStorage before testing
+      testLocalStorageLimit();
+      // This function tests the localStorage limit.
+      // It continues to add data to localStorage and displays an error message when the limit is reached.
+    </script>
+  </body>
+</html>

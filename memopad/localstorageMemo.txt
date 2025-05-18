@@ -1,0 +1,30 @@
+`localStorage` はブラウザに**キーと文字列のペア**を保存するためのAPI
+
+---
+
+## `localStorage` の使い方一覧
+
+| 操作              | サンプルコード                                      | 説明                       |
+| --------------- | -------------------------------------------- | ------------------------ |
+| 🔹 保存する（追加/更新）  | `localStorage.setItem('key', 'value');`      | キーと値を保存（既にあれば上書き）        |
+| 🔹 読み込む         | `const value = localStorage.getItem('key');` | 指定したキーの値を取得（なければ `null`） |
+| 🔹 削除する         | `localStorage.removeItem('key');`            | 指定したキーを削除                |
+| 🔹 全削除（初期化）     | `localStorage.clear();`                      | 全てのデータを削除                |
+| 🔹 キーの数を取得      | `localStorage.length`                        | 保存されているキーの数              |
+| 🔹 インデックスでキーを取得 | `localStorage.key(0);`                       | 0番目のキーを取得（順序保証なし）        |
+
+---
+
+## JSONデータの保存・読み出し
+
+`localStorage` は文字列しか保存できないため、オブジェクトや配列を扱うには `JSON.stringify()` と `JSON.parse()` が必要です。
+
+```javascript
+// 保存（オブジェクト → JSON文字列）
+const user = { name: "Alice", age: 30 };
+localStorage.setItem('user', JSON.stringify(user));
+
+// 読み出し（JSON文字列 → オブジェクト）
+const userData = JSON.parse(localStorage.getItem('user'));
+alert(userData.name); // "Alice"
+```

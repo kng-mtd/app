@@ -1,0 +1,309 @@
+JavaScriptでクラスを定義したファイルをインポートするには、モジュールとしてエクスポートし、それを他のファイルでインポートする方法が一般的です。
+
+
+### 1. **クラスを定義するファイル（例: `KVStore.js`）**
+
+まず、クラスを定義したファイルで、`export` を使用してクラスをエクスポートします。
+
+```js
+// KVStore.js
+
+export class KVStore {
+  constructor(initialData = {}) {
+    this.store = { ...initialData };
+  }
+
+  set(key, value) {
+    this.store[key] = value;
+  }
+
+  get(key) {
+    return this.has(key) ? this.store[key] : null;
+  }
+
+  has(key) {
+    return Object.prototype.hasOwnProperty.call(this.store, key);
+  }
+
+  clear() {
+    this.store = {};
+  }
+
+  // 他のメソッドもここに追加
+}
+```
+
+### 2. **インポートするファイル（例: `app.js`）**
+
+次に、この `KVStore` クラスをインポートして使用するファイルを作成します。
+
+```js
+// app.js
+
+import { KVStore } from './KVStore.js';  // クラスをインポート
+
+const kv = new KVStore();
+kv.set('name', 'Alice');
+console.log(kv.get('name')); // 'Alice'
+```
+
+### 3. **実行するための環境**
+
+* **ブラウザ**: HTMLファイルでモジュールを使いたい場合、`<script>` タグに `type="module"` を追加して、ブラウザでES6モジュールを使えるようにします。
+
+```html
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Module Example</title>
+  </head>
+  <body>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
+```
+
+* **Node.js**: Node.jsでモジュールを使うには、`package.json` に `"type": "module"` を設定する必要があります。
+
+```json
+// package.json
+
+{
+  "type": "module"
+}
+```
+
+### 4. **相対パスの注意点**
+
+* インポートする際に、ファイルの拡張子 `.js` を忘れずに書く必要があります（特にモジュールを使用する環境で）。
+* 相対パス（`./` または `../`）を使ってファイルを指定します。
+
+---
+
+
+
+### **ファイル構造を整理**
+
+デプロイする際には、ファイルの構造を整理し、適切なディレクトリに配置します。例えば、次のような構成にすることが一般的です：
+
+```
+/my-project
+  ├── index.html
+  ├── js/
+  │   ├── KVStore.js  (クラス定義ファイル)
+  │   └── app.js      (インポートして使用するファイル)
+  └── css/
+      └── style.css
+```
+
+このように、`js/` フォルダ内にJavaScriptファイルをまとめ、CSSや画像などの静的ファイルを適切に配置します。
+
+---
+
+### **HTMLファイルでモジュールをインポート**
+
+`index.html` で `<script>` タグを使ってモジュールを読み込みます。モジュールのインポートには `type="module"` を指定します。
+
+```html
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Notepad App</title>
+  </head>
+  <body>
+    <h1>Welcome to Notepad</h1>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
+```
+
+`app.js` でクラスをインポートするようにします：
+
+```js
+// js/app.js
+import { KVStore } from './KVStore.js';  // クラスをインポート
+
+const kv = new KVStore();
+kv.set('name', 'Alice');
+console.log(kv.get('name')); // 'Alice'
+```
+
+
+
+
+
+
+CRUD適用オブジェクトクラス
+
+class KVStore {
+  constructor(initialData = {}) {
+    this.store = { ...initialData };
+  }
+
+  // Set (Add or Update)
+  set(key, value) {
+    this.store[key] = value;
+  }
+
+  // Get (Read)
+  get(key) {
+    return this.has(key) ? this.store[key] : null;
+  }
+
+  // Delete
+  delete(key) {
+    if (this.has(key)) {
+      delete this.store[key];
+      return true;
+    }
+    return false;
+  }
+
+  // Check if key exists
+  has(key) {
+    return Object.prototype.hasOwnProperty.call(this.store, key);
+  }
+
+  // List all keys
+  list() {
+    return Object.keys(this.store);
+  }
+
+  // Find keys where value has a specific field
+  findKeysByValueField(fieldName) {
+    return Object.entries(this.store)
+      .filter(
+        ([_, value]) =>
+          typeof value === "object" && value !== null && fieldName in value
+      )
+      .map(([key]) => key);
+  }
+
+  // Get list of {key, value[fieldName]} pairs as object
+  getKeyValueMapByField(fieldName) {
+    const result = {};
+    for (const [key, value] of Object.entries(this.store)) {
+      if (typeof value === "object" && value !== null && fieldName in value) {
+        result[key] = value[fieldName];
+      }
+    }
+    return result;
+  }
+
+  // Find keys where the value is a string and includes the given substring
+  findKeysBySubstringInValue(substring, { caseSensitive = false } = {}) {
+    return Object.entries(this.store)
+      .filter(
+        ([_, value]) =>
+          typeof value === "string" &&
+          (caseSensitive
+            ? value.includes(substring)
+            : value.toLowerCase().includes(substring.toLowerCase()))
+      )
+      .map(([key]) => key);
+  }
+
+  // Clear all
+  clear() {
+    for (const key in this.store) {
+      delete this.store[key];
+    }
+  }
+
+  // Get shallow copy
+  getAll() {
+    return { ...this.store };
+  }
+
+  // Get deep copy
+  getAllDeep() {
+    return JSON.parse(JSON.stringify(this.store));
+  }
+
+  // Export store as JSON string
+  export() {
+    return JSON.stringify(this.store);
+  }
+
+  // Import JSON string (merge or replace)
+  import(jsonString, { merge = true } = {}) {
+    try {
+      const data = JSON.parse(jsonString);
+      if (typeof data !== "object" || data === null) {
+        throw new Error("Invalid JSON data");
+      }
+      if (merge) {
+        Object.assign(this.store, data); // merge into existing store
+      } else {
+        this.store = { ...data }; // replace store
+      }
+      return true;
+    } catch (e) {
+      console.error("Failed to import:", e.message);
+      return false;
+    }
+  }
+}
+
+
+// Example usage
+
+const kvStore = new KVStore({
+  user1: { name: "Alice", age: 25 },
+  user2: { name: "Bob", age: 30 },
+});
+
+
+kvStore.set("user3", { name: "Charlie", age: 35 });
+console.log(kvStore.get("user1")); // { name: "Alice", age: 25 }
+console.log(kvStore.list()); // ["user1", "user2", "user3"]
+console.log(kvStore.findKeysByValueField("name")); // ["user1", "user2", "user3"]
+console.log(kvStore.getKeyValueMapByField("age")); // { user1: 25, user2: 30, user3: 35 }
+console.log(kvStore.export()); // JSON string of the store
+kvStore.import('{"user4": {"name": "David", "age": 40}}', { merge: true });
+console.log(kvStore.get("user4")); // { name: "David", age: 40 }
+kvStore.clear();
+console.log(kvStore.list()); // []
+kvStore.set("user5", { name: "Eve", age: 28 });
+console.log(kvStore.getAll()); // { user5: { name: "Eve", age: 28 } }
+console.log(kvStore.getAllDeep()); // { user5: { name: "Eve", age: 28 } }
+console.log(kvStore.get("user5")); // { name: "Eve", age: 28 }
+console.log(kvStore.has("user5")); // true
+console.log(kvStore.delete("user5")); // true
+console.log(kvStore.get("user5")); // null
+console.log(kvStore.has("user5")); // false
+console.log(kvStore.list()); // []
+console.log(kvStore.getAll()); // {}
+console.log(kvStore.getAllDeep()); // {}
+console.log(kvStore.export()); // {}
+console.log(
+  kvStore.import('{"user6": {"name": "Frank", "age": 45}}', { merge: false })
+); // true
+console.log(kvStore.get("user6")); // { name: "Frank", age: 45 }
+console.log(kvStore.list()); // ["user6"]
+console.log(kvStore.getAll()); // { user6: { name: "Frank", age: 45 } }
+console.log(kvStore.getAllDeep()); // { user6: { name: "Frank", age: 45 } }
+console.log(kvStore.export()); // JSON string of the store
+console.log(
+  kvStore.import('{"user7": {"name": "Grace", "age": 50}}', { merge: true })
+); // true
+console.log(kvStore.get("user7")); // { name: "Grace", age: 50 }
+
+
+const kv = new KVStore();
+kv.set('a', 'Hello world');
+kv.set('b', 'HELLO again');
+kv.set('c', 'Nothing to see');
+
+console.log(kv.findKeysBySubstringInValue('hello')); 
+// → ['a', 'b']（大文字小文字区別なし）
+
+console.log(kv.findKeysBySubstringInValue('hello', { caseSensitive: true }));
+// → ['a']（厳密な一致）

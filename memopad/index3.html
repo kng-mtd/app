@@ -19,7 +19,6 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
     />
-
     <style>
       textarea {
         width: 100%;
@@ -40,7 +39,7 @@
   </head>
   <body class="container" style="width: 400px; background: black">
     <div class="row">
-      <form>
+      <form onsubmit="return false;">
         <h3>Notepad</h3>
         <textarea id="memo" placeholder="Write your note here..."></textarea>
         <div>
@@ -64,57 +63,53 @@
       </form>
     </div>
 
-    <script>
-      // Load saved notes on page load
-      window.onload = function () {
-        loadNotes();
+    <script type="module">
+      import { KVStoreIDB } from "./CRUDforIndexDB.js";
+
+      const store = new KVStoreIDB("memoDB", "notes");
+
+      window.onload = async function () {
+        await loadNotes();
       };
 
-      // Save a new note
-      function saveMemo() {
-        const memoText = document.getElementById('memo').value.trim();
-        if (memoText === '') {
-          alert('Note cannot be empty!');
+      async function saveMemo() {
+        const memoText = document.getElementById("memo").value.trim();
+        if (memoText === "") {
+          alert("Note cannot be empty!");
           return;
         }
 
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
-        notes.push(memoText);
-        localStorage.setItem('notes', JSON.stringify(notes));
-        document.getElementById('memo').value = '';
-        loadNotes();
+        const key = "text-" + Date.now();
+        await store.set(key, memoText);
+        document.getElementById("memo").value = "";
+        await loadNotes();
       }
 
-      // Load and display saved notes
-      function loadNotes() {
-        const notesList = document.getElementById('notesList');
-        notesList.innerHTML = '';
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
+      async function loadNotes() {
+        const notesList = document.getElementById("notesList");
+        notesList.innerHTML = "";
 
-        notes.forEach((note, index) => {
-          const noteItem = document.createElement('div');
-          noteItem.classList.add('note-item');
+        const keys = await store.list();
+        for (const key of keys) {
+          const value = await store.get(key);
+          const noteItem = document.createElement("div");
           noteItem.innerHTML = `
-            <div style="background: #eee; margin: 5px; border-radius: 5px;">
-              <p style="display: inline-block; width: 300px;">${note}</p>
-              <button class='button-small' onclick="deleteMemo(${index})" style='background: #a00;'>Del</button>
-            </div>
-          `;
+          <div style="background: #eee; margin: 5px; border-radius: 5px;">
+            <p style="display: inline-block; width: 300px;">${value}</p>
+            <button class="button-small" style="background: #a00;" onclick="deleteMemo('${key}')">Del</button>
+          </div>
+        `;
           notesList.appendChild(noteItem);
-        });
+        }
       }
 
-      // Delete a specific note
-      function deleteMemo(index) {
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
-        notes.splice(index, 1);
-        localStorage.setItem('notes', JSON.stringify(notes));
-        loadNotes();
+      async function deleteMemo(key) {
+        await store.delete(key);
+        await loadNotes();
       }
 
-      // Clear the input field
       function clearMemo() {
-        document.getElementById('memo').value = '';
+        document.getElementById("memo").value = "";
       }
     </script>
   </body>

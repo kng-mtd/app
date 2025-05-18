@@ -19,7 +19,6 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
     />
-
     <style>
       textarea {
         width: 100%;
@@ -40,7 +39,7 @@
   </head>
   <body class="container" style="width: 400px; background: black">
     <div class="row">
-      <form>
+      <form onsubmit="return false;">
         <h3>Notepad</h3>
         <textarea id="memo" placeholder="Write your note here..."></textarea>
         <div>
@@ -65,12 +64,28 @@
     </div>
 
     <script>
-      // Load saved notes on page load
+      let db;
+
       window.onload = function () {
-        loadNotes();
+        const request = indexedDB.open('memoDB', 1);
+
+        request.onerror = function () {
+          console.error('IndexedDB failed to open');
+        };
+
+        request.onsuccess = function () {
+          db = request.result;
+          loadNotes();
+        };
+
+        request.onupgradeneeded = function (e) {
+          db = e.target.result;
+          if (!db.objectStoreNames.contains('notes')) {
+            db.createObjectStore('notes', { autoIncrement: true });
+          }
+        };
       };
 
-      // Save a new note
       function saveMemo() {
         const memoText = document.getElementById('memo').value.trim();
         if (memoText === '') {
@@ -78,41 +93,50 @@
           return;
         }
 
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
-        notes.push(memoText);
-        localStorage.setItem('notes', JSON.stringify(notes));
-        document.getElementById('memo').value = '';
-        loadNotes();
+        const tx = db.transaction('notes', 'readwrite');
+        const store = tx.objectStore('notes');
+        store.add(memoText);
+
+        tx.oncomplete = function () {
+          document.getElementById('memo').value = '';
+          loadNotes();
+        };
       }
 
-      // Load and display saved notes
       function loadNotes() {
         const notesList = document.getElementById('notesList');
         notesList.innerHTML = '';
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
 
-        notes.forEach((note, index) => {
-          const noteItem = document.createElement('div');
-          noteItem.classList.add('note-item');
-          noteItem.innerHTML = `
-            <div style="background: #eee; margin: 5px; border-radius: 5px;">
-              <p style="display: inline-block; width: 300px;">${note}</p>
-              <button class='button-small' onclick="deleteMemo(${index})" style='background: #a00;'>Del</button>
-            </div>
-          `;
-          notesList.appendChild(noteItem);
-        });
+        const tx = db.transaction('notes', 'readonly');
+        const store = tx.objectStore('notes');
+        const request = store.openCursor();
+
+        request.onsuccess = function (e) {
+          const cursor = e.target.result;
+          if (cursor) {
+            const noteItem = document.createElement('div');
+            noteItem.innerHTML = `
+              <div style="background: #eee; margin: 5px; border-radius: 5px;">
+                <p style="display: inline-block; width: 300px;">${cursor.value}</p>
+                <button class="button-small" style="background: #a00;" onclick="deleteMemo(${cursor.key})">Del</button>
+              </div>
+            `;
+            notesList.appendChild(noteItem);
+            cursor.continue();
+          }
+        };
       }
 
-      // Delete a specific note
-      function deleteMemo(index) {
-        let notes = JSON.parse(localStorage.getItem('notes')) || [];
-        notes.splice(index, 1);
-        localStorage.setItem('notes', JSON.stringify(notes));
-        loadNotes();
+      function deleteMemo(key) {
+        const tx = db.transaction('notes', 'readwrite');
+        const store = tx.objectStore('notes');
+        store.delete(key);
+
+        tx.oncomplete = function () {
+          loadNotes();
+        };
       }
 
-      // Clear the input field
       function clearMemo() {
         document.getElementById('memo').value = '';
       }
