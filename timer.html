@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timer & Stopwatch</title>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+
+    <!-- Alpine.js -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+  </head>
+
+  <body x-data="timerStopwatchApp()">
+    <div class="container">
+      <div class="row">
+        <!-- Timer -->
+        <div class="column">
+          <h2>Timer</h2>
+          <h1 x-text="formatTimer(timerTime)"></h1>
+          <input
+            type="number"
+            x-model.number="timerInput"
+            placeholder="Minutes"
+            style="width: 100px"
+          />
+          <button @click="startTimer()">Start</button>
+          <button @click="stopTimer()">Stop</button>
+          <button @click="resetTimer()">Reset</button>
+        </div>
+
+        <!-- Stopwatch -->
+        <div class="column">
+          <h2>Stopwatch</h2>
+          <h1 x-text="formatStopwatch(stopwatchTime)"></h1>
+          <button @click="startStopwatch()">Start</button>
+          <button @click="pauseStopwatch()">Pause</button>
+          <button @click="resetStopwatch()">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function timerStopwatchApp() {
+        return {
+          timerInput: 0,
+          timerTime: 0,
+          timerInterval: null,
+
+          stopwatchTime: 0,
+          stopwatchInterval: null,
+
+          startTimer() {
+            clearInterval(this.timerInterval);
+            this.timerTime = this.timerInput * 60;
+            this.updateTimer();
+            this.timerInterval = setInterval(() => this.updateTimer(), 1000);
+          },
+          updateTimer() {
+            if (this.timerTime <= 0) {
+              clearInterval(this.timerInterval);
+              return;
+            }
+            this.timerTime--;
+          },
+          stopTimer() {
+            clearInterval(this.timerInterval);
+          },
+          resetTimer() {
+            clearInterval(this.timerInterval);
+            this.timerTime = 0;
+            this.timerInput = 0;
+          },
+          formatTimer(time) {
+            const m = String(Math.floor(time / 60)).padStart(2, '0');
+            const s = String(time % 60).padStart(2, '0');
+            return `${m}:${s}`;
+          },
+
+          startStopwatch() {
+            clearInterval(this.stopwatchInterval);
+            this.stopwatchInterval = setInterval(
+              () => this.updateStopwatch(),
+              1000
+            );
+          },
+          updateStopwatch() {
+            this.stopwatchTime++;
+          },
+          pauseStopwatch() {
+            clearInterval(this.stopwatchInterval);
+          },
+          resetStopwatch() {
+            clearInterval(this.stopwatchInterval);
+            this.stopwatchTime = 0;
+          },
+          formatStopwatch(time) {
+            const h = String(Math.floor(time / 3600)).padStart(2, '0');
+            const m = String(Math.floor((time % 3600) / 60)).padStart(2, '0');
+            const s = String(time % 60).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
