@@ -60,7 +60,7 @@
 							<template x-for="item in items" :key="item.dt">
 								<div class="forecast-item">
 									<div x-text="item.date.split(' ')[1]"></div>
-									<img :src="'../icon/' + item.weather[0].icon + '.png'" alt="" />
+									<img :src="'./icon/' + item.weather[0].icon + '.png'" alt="" />
 									<div x-text="Math.round(item.main.temp) + '°C'"></div>
 								</div>
 							</template>
